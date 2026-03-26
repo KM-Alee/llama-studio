@@ -45,16 +45,35 @@ pub struct ConfigStore {
 
 impl ConfigStore {
     pub async fn new(db: Arc<Database>) -> Result<Self> {
-        let config = Self::load_from_db(&db).await.unwrap_or_default();
-        Ok(Self {
+        let config = Self::load_from_db(&db).await?;
+        let store = Self {
             db,
             config: tokio::sync::RwLock::new(config),
-        })
+        };
+        // Persist defaults so the config table is never empty
+        store.persist().await?;
+        Ok(store)
     }
 
     async fn load_from_db(db: &Database) -> Result<AppConfig> {
         let json = db.get_config().await?;
-        Ok(serde_json::from_value(json)?)
+        if json.as_object().is_some_and(|o| o.is_empty()) {
+            // No config stored yet — use defaults
+            return Ok(AppConfig::default());
+        }
+        // Merge stored values on top of defaults so new fields get their defaults
+        let mut base = serde_json::to_value(AppConfig::default())?;
+        if let (Some(base_obj), Some(stored_obj)) = (base.as_object_mut(), json.as_object()) {
+            for (key, value) in stored_obj {
+                base_obj.insert(key.clone(), value.clone());
+            }
+        }
+        Ok(serde_json::from_value(base)?)
+    }
+
+    async fn persist(&self) -> Result<()> {
+        let config = self.config.read().await;
+        self.db.set_config(&serde_json::to_value(&*config)?).await
     }
 
     pub async fn get_all(&self) -> Result<AppConfig> {

@@ -1,19 +1,38 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
-import { Send, Square, RotateCcw, Sparkles } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
+import { Send, Square, Sparkles } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
 import { useAppStore } from '@/stores/appStore'
 import { useServerStore } from '@/stores/serverStore'
-import { streamChat, getPresets } from '@/lib/api'
+import {
+  streamChat,
+  getPresets,
+  getConversation,
+  createConversation,
+  addMessage,
+} from '@/lib/api'
 import { cn } from '@/lib/utils'
+import toast from 'react-hot-toast'
 import { MessageBubble } from './MessageBubble'
+import { PresetSelector } from './PresetSelector'
 
 export function ChatView() {
+  const { conversationId } = useParams<{ conversationId?: string }>()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
   const [input, setInput] = useState('')
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
   const messages = useChatStore((s) => s.messages)
-  const addMessage = useChatStore((s) => s.addMessage)
+  const setMessages = useChatStore((s) => s.setMessages)
+  const addLocalMessage = useChatStore((s) => s.addMessage)
+  const activeConversationId = useChatStore((s) => s.activeConversationId)
+  const setActiveConversation = useChatStore((s) => s.setActiveConversation)
   const isStreaming = useChatStore((s) => s.isStreaming)
   const setStreaming = useChatStore((s) => s.setStreaming)
   const streamingContent = useChatStore((s) => s.streamingContent)
@@ -27,6 +46,32 @@ export function ChatView() {
     queryFn: getPresets,
   })
 
+  // Load conversation + messages when navigating to an existing conversation
+  useEffect(() => {
+    if (conversationId && conversationId !== activeConversationId) {
+      setActiveConversation(conversationId)
+      getConversation(conversationId).then((data) => {
+        const msgs = data.messages.map((m: any) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+          createdAt: m.created_at,
+          tokensUsed: m.tokens_used,
+          generationTimeMs: m.generation_time_ms,
+        }))
+        setMessages(msgs)
+      }).catch(() => {
+        // Conversation not found — reset
+        setMessages([])
+        setActiveConversation(null)
+      })
+    } else if (!conversationId) {
+      // New chat — clear state
+      setActiveConversation(null)
+      setMessages([])
+    }
+  }, [conversationId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
@@ -35,44 +80,77 @@ export function ChatView() {
     const trimmed = input.trim()
     if (!trimmed || isStreaming) return
 
-    const userMsg = {
-      id: crypto.randomUUID(),
-      role: 'user' as const,
-      content: trimmed,
-      createdAt: new Date().toISOString(),
-    }
-
-    addMessage(userMsg)
     setInput('')
     setStreaming(true)
     clearStreamContent()
 
     try {
+      // If no active conversation, create one
+      let convoId = activeConversationId
+      if (!convoId) {
+        const title = trimmed.length > 50 ? trimmed.slice(0, 50) + '...' : trimmed
+        const convo = await createConversation({
+          title,
+          preset_id: selectedPresetId ?? undefined,
+        })
+        convoId = convo.id
+        setActiveConversation(convoId)
+        navigate(`/chat/${convoId}`, { replace: true })
+        queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      }
+
+      // Save user message to backend
+      const userMsgResponse = await addMessage(convoId, {
+        role: 'user',
+        content: trimmed,
+      })
+
+      const userMsg = {
+        id: userMsgResponse.id,
+        role: 'user' as const,
+        content: trimmed,
+        createdAt: userMsgResponse.created_at,
+      }
+      addLocalMessage(userMsg)
+
+      // Build the full message history to send to llama.cpp
       const chatMessages = [...messages, userMsg].map((m) => ({
         role: m.role,
         content: m.content,
       }))
 
+      // Stream the response
+      let fullContent = ''
       for await (const chunk of streamChat(chatMessages)) {
+        fullContent += chunk
         appendStreamContent(chunk)
       }
 
-      addMessage({
-        id: crypto.randomUUID(),
+      // Save assistant message to backend
+      const assistantMsgResponse = await addMessage(convoId, {
         role: 'assistant',
-        content: useChatStore.getState().streamingContent,
-        createdAt: new Date().toISOString(),
+        content: fullContent,
+      })
+
+      addLocalMessage({
+        id: assistantMsgResponse.id,
+        role: 'assistant',
+        content: fullContent,
+        createdAt: assistantMsgResponse.created_at,
       })
     } catch (err) {
-      addMessage({
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      toast.error(errorMsg)
+      addLocalMessage({
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        content: `Error: ${errorMsg}`,
         createdAt: new Date().toISOString(),
       })
     } finally {
       setStreaming(false)
       clearStreamContent()
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
     }
   }
 
@@ -84,6 +162,21 @@ export function ChatView() {
   }
 
   const isServerReady = serverStatus === 'running'
+
+  // Rough token count estimate (~4 chars per token for English)
+  const estimatedTokens = Math.ceil(input.length / 4)
+
+  // Auto-resize textarea to its content
+  const autoResize = useCallback(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+  }, [])
+
+  useEffect(() => {
+    autoResize()
+  }, [input, autoResize])
 
   return (
     <div className="flex flex-col h-full">
@@ -152,8 +245,7 @@ export function ChatView() {
               }
               disabled={!isServerReady}
               rows={1}
-              className="flex-1 bg-transparent resize-none outline-none text-text placeholder-text-muted text-sm max-h-40 min-h-[36px] py-1.5 disabled:opacity-50"
-              style={{ height: 'auto', overflowY: input.split('\n').length > 3 ? 'auto' : 'hidden' }}
+              className="flex-1 bg-transparent resize-none outline-none text-text placeholder-text-muted text-sm max-h-[200px] min-h-[36px] py-1.5 disabled:opacity-50"
             />
             <button
               onClick={isStreaming ? () => setStreaming(false) : handleSend}
@@ -172,15 +264,23 @@ export function ChatView() {
               )}
             </button>
           </div>
-          {profile === 'advanced' && (
-            <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
-              <span>{input.length} chars</span>
-              <span>·</span>
-              <button className="hover:text-text transition-colors">Parameters</button>
-              <span>·</span>
-              <button className="hover:text-text transition-colors">System Prompt</button>
-            </div>
-          )}
+          <div className="flex items-center justify-between mt-2">
+            <PresetSelector
+              selectedPresetId={selectedPresetId}
+              onSelect={setSelectedPresetId}
+            />
+            {profile === 'advanced' && (
+              <div className="flex items-center gap-3 text-xs text-text-muted">
+                <span>{input.length} chars</span>
+                <span>·</span>
+                <span>~{estimatedTokens} tokens</span>
+                <span>·</span>
+                <button className="hover:text-text transition-colors">Parameters</button>
+                <span>·</span>
+                <button className="hover:text-text transition-colors">System Prompt</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

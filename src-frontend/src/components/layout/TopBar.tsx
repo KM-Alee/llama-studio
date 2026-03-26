@@ -3,6 +3,7 @@ import { Menu, Monitor, Zap } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { useServerStore } from '@/stores/serverStore'
 import { getServerStatus } from '@/lib/api'
+import { ModelSelector } from './ModelSelector'
 import { cn } from '@/lib/utils'
 import { useEffect } from 'react'
 
@@ -53,28 +54,33 @@ export function TopBar() {
         </div>
       </div>
 
-      {/* Profile Toggle */}
-      <button
-        onClick={toggleProfile}
-        className={cn(
-          'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all',
-          profile === 'normal'
-            ? 'bg-surface-dim text-text-secondary hover:bg-surface-hover'
-            : 'bg-primary/10 text-primary hover:bg-primary/20'
-        )}
-      >
-        {profile === 'normal' ? (
-          <>
-            <Monitor className="w-3.5 h-3.5" />
-            Normal
-          </>
-        ) : (
-          <>
-            <Zap className="w-3.5 h-3.5" />
-            Advanced
-          </>
-        )}
-      </button>
+      <div className="flex items-center gap-3">
+        {/* Model Selector */}
+        <ModelSelector />
+
+        {/* Profile Toggle */}
+        <button
+          onClick={toggleProfile}
+          className={cn(
+            'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all',
+            profile === 'normal'
+              ? 'bg-surface-dim text-text-secondary hover:bg-surface-hover'
+              : 'bg-primary/10 text-primary hover:bg-primary/20'
+          )}
+        >
+          {profile === 'normal' ? (
+            <>
+              <Monitor className="w-3.5 h-3.5" />
+              Normal
+            </>
+          ) : (
+            <>
+              <Zap className="w-3.5 h-3.5" />
+              Advanced
+            </>
+          )}
+        </button>
+      </div>
     </header>
   )
 }

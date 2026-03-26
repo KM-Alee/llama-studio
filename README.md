@@ -27,7 +27,7 @@ A beautiful, fast, local-first web UI for [llama.cpp](https://github.com/ggergan
 
 - **Rust** 1.70+ (`rustup` recommended)
 - **Node.js** 20+ with `pnpm`
-- **llama.cpp** — [build from source](https://github.com/ggerganov/llama.cpp#build) or download a release
+- **llama.cpp** — [build from source](https://github.com/ggerganov/llama.cpp#build) or download a release (tested with b8530, Vulkan)
 - A GGUF model file
 
 ## Quick Start

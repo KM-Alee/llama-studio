@@ -6,3 +6,4 @@ pub mod conversations;
 pub mod presets;
 pub mod config;
 pub mod static_files;
+pub mod ws;

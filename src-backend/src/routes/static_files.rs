@@ -1,5 +1,5 @@
 use axum::{
-    http::{Request, StatusCode, Uri},
+    http::{StatusCode, Uri},
     response::{Html, IntoResponse, Response},
 };
 

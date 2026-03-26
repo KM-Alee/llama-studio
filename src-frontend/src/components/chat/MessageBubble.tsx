@@ -1,8 +1,10 @@
 import { memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
 import { Copy, Check, User, Bot } from 'lucide-react'
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import type { ChatMessage } from '@/stores/chatStore'
 import { cn } from '@/lib/utils'
 
@@ -22,7 +24,12 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
   }
 
   return (
-    <div className={cn('flex gap-3 group', isUser ? 'flex-row-reverse' : '')}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className={cn('flex gap-3 group', isUser ? 'flex-row-reverse' : '')}
+    >
       {/* Avatar */}
       <div
         className={cn(
@@ -48,6 +55,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
           <div className="prose prose-sm dark:prose-invert max-w-none">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeHighlight]}
               components={{
                 code({ className, children, ...props }) {
                   const isInline = !className
@@ -101,6 +109,6 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
           </button>
         </div>
       )}
-    </div>
+    </motion.div>
   )
 })

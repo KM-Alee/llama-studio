@@ -38,6 +38,7 @@ async fn main() -> Result<()> {
         .nest("/api/v1/conversations", routes::conversations::router())
         .nest("/api/v1/presets", routes::presets::router())
         .nest("/api/v1/config", routes::config::router())
+        .nest("/api/v1/ws", routes::ws::router())
         .fallback(routes::static_files::serve_spa)
         .layer(TraceLayer::new_for_http())
         .layer(

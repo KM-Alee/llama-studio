@@ -29,18 +29,39 @@ export const startServer = (modelId: string, extraArgs: string[] = []) =>
     body: JSON.stringify({ model_id: modelId, extra_args: extraArgs }),
   })
 export const stopServer = () => request('/server/stop', { method: 'POST' })
-export const getServerStatus = () => request<{ status: string }>('/server/status')
+export const getServerStatus = () => request<{ status: string; model: string | null }>('/server/status')
 
 // Conversations
 export const getConversations = () => request<{ conversations: any[] }>('/conversations')
-export const createConversation = (data: any) =>
-  request('/conversations', { method: 'POST', body: JSON.stringify(data) })
-export const getConversation = (id: string) => request(`/conversations/${encodeURIComponent(id)}`)
+export const createConversation = (data: {
+  title?: string
+  model_id?: string
+  preset_id?: string
+  system_prompt?: string
+}) => request<any>('/conversations', { method: 'POST', body: JSON.stringify(data) })
+export const getConversation = (id: string) =>
+  request<{ conversation: any; messages: any[] }>(`/conversations/${encodeURIComponent(id)}`)
 export const deleteConversation = (id: string) =>
   request(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
-// Chat
-export async function* streamChat(messages: { role: string; content: string }[]) {
+// Messages
+export const getMessages = (conversationId: string) =>
+  request<{ messages: any[] }>(`/conversations/${encodeURIComponent(conversationId)}/messages`)
+export const addMessage = (conversationId: string, data: {
+  role: string
+  content: string
+  tokens_used?: number
+  generation_time_ms?: number
+}) =>
+  request(`/conversations/${encodeURIComponent(conversationId)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+// Chat — SSE streaming that parses OpenAI-format SSE from the backend
+export async function* streamChat(
+  messages: { role: string; content: string }[],
+): AsyncGenerator<string> {
   const res = await fetch(`${API_BASE}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -52,11 +73,34 @@ export async function* streamChat(messages: { role: string; content: string }[])
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
+  let buffer = ''
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    yield decoder.decode(value, { stream: true })
+
+    buffer += decoder.decode(value, { stream: true })
+
+    // Process complete SSE lines from the buffer
+    const lines = buffer.split('\n')
+    // Keep the last potentially incomplete line in the buffer
+    buffer = lines.pop() ?? ''
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed || !trimmed.startsWith('data:')) continue
+
+      const data = trimmed.slice(5).trim()
+      if (data === '[DONE]') return
+
+      try {
+        const parsed = JSON.parse(data)
+        const delta = parsed.choices?.[0]?.delta?.content
+        if (delta) yield delta
+      } catch {
+        // Not valid JSON yet — llama.cpp may split across chunks
+      }
+    }
   }
 }
 

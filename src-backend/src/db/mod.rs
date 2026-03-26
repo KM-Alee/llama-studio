@@ -7,6 +7,9 @@ use crate::services::model_registry::Model;
 use crate::services::session_manager::{Conversation, Message};
 use crate::services::preset_manager::Preset;
 
+/// Current schema version for migration tracking.
+const SCHEMA_VERSION: u32 = 1;
+
 /// SQLite database wrapper with synchronous rusqlite behind a Mutex.
 /// All public methods are async for compatibility with Axum handlers.
 pub struct Database {
@@ -26,6 +29,8 @@ impl Database {
         }
 
         let conn = Connection::open(&db_path)?;
+        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+
         let db = Self { conn: Mutex::new(conn) };
         db.run_migrations()?;
         Ok(db)
@@ -33,61 +38,78 @@ impl Database {
 
     fn run_migrations(&self) -> Result<()> {
         let conn = self.conn.lock().unwrap();
+
+        // Bootstrap the schema_version table
         conn.execute_batch(
-            "
-            CREATE TABLE IF NOT EXISTS models (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                path TEXT NOT NULL UNIQUE,
-                size_bytes INTEGER NOT NULL,
-                quantization TEXT,
-                architecture TEXT,
-                parameters TEXT,
-                context_length INTEGER,
-                added_at TEXT NOT NULL,
-                last_used TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS conversations (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                model_id TEXT,
-                preset_id TEXT,
-                system_prompt TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS messages (
-                id TEXT PRIMARY KEY,
-                conversation_id TEXT NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                tokens_used INTEGER,
-                generation_time_ms INTEGER,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS presets (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                profile TEXT NOT NULL DEFAULT 'normal',
-                parameters TEXT NOT NULL DEFAULT '{}',
-                system_prompt TEXT,
-                is_builtin INTEGER NOT NULL DEFAULT 0
-            );
-
-            CREATE TABLE IF NOT EXISTS config (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
-            CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
-            "
+            "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);"
         )?;
+
+        let current: u32 = conn
+            .query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |r| r.get(0))
+            .unwrap_or(0);
+
+        if current < 1 {
+            conn.execute_batch(
+                "
+                CREATE TABLE IF NOT EXISTS models (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL UNIQUE,
+                    size_bytes INTEGER NOT NULL,
+                    quantization TEXT,
+                    architecture TEXT,
+                    parameters TEXT,
+                    context_length INTEGER,
+                    added_at TEXT NOT NULL,
+                    last_used TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    model_id TEXT,
+                    preset_id TEXT,
+                    system_prompt TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS messages (
+                    id TEXT PRIMARY KEY,
+                    conversation_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    tokens_used INTEGER,
+                    generation_time_ms INTEGER,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS presets (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    profile TEXT NOT NULL DEFAULT 'normal',
+                    parameters TEXT NOT NULL DEFAULT '{}',
+                    system_prompt TEXT,
+                    is_builtin INTEGER NOT NULL DEFAULT 0
+                );
+
+                CREATE TABLE IF NOT EXISTS config (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
+                CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
+
+                INSERT INTO schema_version (version) VALUES (1);
+                "
+            )?;
+            tracing::info!("Database migrated to schema version 1");
+        }
+
+        tracing::info!(version = SCHEMA_VERSION, "Database schema is up to date");
         Ok(())
     }
 
@@ -190,6 +212,16 @@ impl Database {
         Ok(())
     }
 
+    pub async fn model_exists_by_path(&self, path: &str) -> Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        let count: u32 = conn.query_row(
+            "SELECT COUNT(*) FROM models WHERE path = ?1",
+            [path],
+            |r| r.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
     // === Conversations ===
 
     pub async fn list_conversations(&self) -> Result<Vec<Conversation>> {
@@ -238,8 +270,24 @@ impl Database {
         Ok(convo)
     }
 
-    pub async fn update_conversation(&self, id: &str, _updates: Value) -> Result<Conversation> {
-        // TODO: Apply partial updates
+    pub async fn update_conversation(&self, id: &str, updates: Value) -> Result<Conversation> {
+        {
+            let conn = self.conn.lock().unwrap();
+            if let Some(obj) = updates.as_object() {
+                if let Some(title) = obj.get("title").and_then(|v| v.as_str()) {
+                    conn.execute(
+                        "UPDATE conversations SET title = ?1, updated_at = ?2 WHERE id = ?3",
+                        rusqlite::params![title, chrono::Utc::now().to_rfc3339(), id],
+                    )?;
+                }
+                if let Some(system_prompt) = obj.get("system_prompt").and_then(|v| v.as_str()) {
+                    conn.execute(
+                        "UPDATE conversations SET system_prompt = ?1, updated_at = ?2 WHERE id = ?3",
+                        rusqlite::params![system_prompt, chrono::Utc::now().to_rfc3339(), id],
+                    )?;
+                }
+            }
+        }
         self.get_conversation(id).await
     }
 
@@ -267,6 +315,23 @@ impl Database {
             })
         })?.filter_map(|r| r.ok()).collect();
         Ok(messages)
+    }
+
+    pub async fn insert_message(&self, msg: &Message) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT INTO messages (id, conversation_id, role, content, tokens_used, generation_time_ms, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                msg.id, msg.conversation_id, msg.role, msg.content,
+                msg.tokens_used, msg.generation_time_ms, msg.created_at
+            ],
+        )?;
+        // Touch the conversation's updated_at timestamp
+        conn.execute(
+            "UPDATE conversations SET updated_at = ?1 WHERE id = ?2",
+            rusqlite::params![msg.created_at, msg.conversation_id],
+        )?;
+        Ok(())
     }
 
     // === Presets ===
@@ -325,8 +390,24 @@ impl Database {
         Ok(preset)
     }
 
-    pub async fn update_preset(&self, id: &str, _req: Value) -> Result<Preset> {
-        // TODO: Apply partial updates
+    pub async fn update_preset(&self, id: &str, updates: Value) -> Result<Preset> {
+        {
+            let conn = self.conn.lock().unwrap();
+            if let Some(obj) = updates.as_object() {
+                if let Some(name) = obj.get("name").and_then(|v| v.as_str()) {
+                    conn.execute("UPDATE presets SET name = ?1 WHERE id = ?2 AND is_builtin = 0", rusqlite::params![name, id])?;
+                }
+                if let Some(desc) = obj.get("description").and_then(|v| v.as_str()) {
+                    conn.execute("UPDATE presets SET description = ?1 WHERE id = ?2 AND is_builtin = 0", rusqlite::params![desc, id])?;
+                }
+                if let Some(params) = obj.get("parameters") {
+                    conn.execute("UPDATE presets SET parameters = ?1 WHERE id = ?2 AND is_builtin = 0", rusqlite::params![params.to_string(), id])?;
+                }
+                if let Some(sp) = obj.get("system_prompt").and_then(|v| v.as_str()) {
+                    conn.execute("UPDATE presets SET system_prompt = ?1 WHERE id = ?2 AND is_builtin = 0", rusqlite::params![sp, id])?;
+                }
+            }
+        }
         self.get_preset(id).await
     }
 

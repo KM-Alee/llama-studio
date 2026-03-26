@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-primary: #6366f1;
@@ -18,16 +21,15 @@
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-surface: #0f172a;
-    --color-surface-dim: #1e293b;
-    --color-surface-hover: #334155;
-    --color-border: #334155;
-    --color-text: #f1f5f9;
-    --color-text-secondary: #94a3b8;
-    --color-text-muted: #64748b;
-  }
+/* Dark theme variables — applied via .dark class on <html> */
+.dark {
+  --color-surface: #0f172a;
+  --color-surface-dim: #1e293b;
+  --color-surface-hover: #334155;
+  --color-border: #334155;
+  --color-text: #f1f5f9;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
 }
 
 html {

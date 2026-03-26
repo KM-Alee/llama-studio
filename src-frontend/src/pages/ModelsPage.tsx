@@ -107,7 +107,7 @@ export function ModelsPage() {
                 <button
                   onClick={() => {
                     setActiveModel(model.id)
-                    startMutation.mutate(model.path)
+                    startMutation.mutate(model.id)
                   }}
                   disabled={serverStatus === 'running'}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/20 text-xs font-medium transition-colors disabled:opacity-30"

@@ -18,12 +18,12 @@
 **Goal**: Rust backend that can manage llama.cpp
 
 ### Tasks
-- [ ] SQLite database setup with migrations
-- [ ] Configuration store (load/save/defaults)
-- [ ] llama.cpp process manager (start/stop/restart/health)
-- [ ] Model directory scanner (find .gguf files, parse metadata)
-- [ ] Basic REST API routes (health, models, server control)
-- [ ] Integration test: start llama.cpp, verify health
+- [x] SQLite database setup with migrations
+- [x] Configuration store (load/save/defaults)
+- [x] llama.cpp process manager (start/stop/restart/health)
+- [x] Model directory scanner (find .gguf files, parse metadata)
+- [x] Basic REST API routes (health, models, server control)
+- [x] Integration test: start llama.cpp, verify health
 
 ### Deliverable
 Backend binary that starts llama.cpp with a model, monitors its health, and exposes REST endpoints.
@@ -34,12 +34,12 @@ Backend binary that starts llama.cpp with a model, monitors its health, and expo
 **Goal**: End-to-end chat with streaming
 
 ### Tasks
-- [ ] SSE streaming proxy (backend → llama.cpp → browser)
-- [ ] Conversation CRUD in SQLite
-- [ ] Message storage with metadata
-- [ ] WebSocket setup for bidirectional comms
-- [ ] Basic error handling and retry logic
-- [ ] Chat completion API endpoint
+- [x] SSE streaming proxy (backend → llama.cpp → browser)
+- [x] Conversation CRUD in SQLite
+- [x] Message storage with metadata
+- [x] WebSocket setup for bidirectional comms
+- [x] Basic error handling and retry logic
+- [x] Chat completion API endpoint
 
 ### Deliverable
 Can send a message and receive streaming tokens back through the full stack.
@@ -50,18 +50,18 @@ Can send a message and receive streaming tokens back through the full stack.
 **Goal**: Beautiful chat UI for everyday users
 
 ### Tasks
-- [ ] App shell layout (sidebar + topbar + content)
-- [ ] Conversation list with search
-- [ ] Chat view with message bubbles
-- [ ] Markdown rendering with code highlighting
-- [ ] Chat input with auto-resize and token count
-- [ ] Model selector dropdown
-- [ ] New chat / delete chat flows
-- [ ] Preset selector (Creative, Precise, Code, etc.)
-- [ ] Theme system (dark/light/system)
-- [ ] Loading states and animations
-- [ ] Toast notifications
-- [ ] Keyboard shortcuts
+- [x] App shell layout (sidebar + topbar + content)
+- [x] Conversation list with search
+- [x] Chat view with message bubbles
+- [x] Markdown rendering with code highlighting
+- [x] Chat input with auto-resize and token count
+- [x] Model selector dropdown
+- [x] New chat / delete chat flows
+- [x] Preset selector (Creative, Precise, Code, etc.)
+- [x] Theme system (dark/light/system)
+- [x] Loading states and animations
+- [x] Toast notifications
+- [x] Keyboard shortcuts
 
 ### Deliverable
 A fully usable chat interface in Normal mode that feels polished and professional.
@@ -148,16 +148,6 @@ Production-quality application ready for public release.
 ---
 
 ## Phase 8: Tauri Desktop App (Future)
-**Goal**: Native desktop application
-
-### Tasks
-- [ ] Tauri project setup
-- [ ] Replace HTTP API with Tauri IPC commands
-- [ ] System tray integration
-- [ ] Native file dialogs
-- [ ] Auto-updater
-- [ ] Platform-specific builds (Linux, macOS, Windows)
-- [ ] GPU detection and auto-configuration
 
 ### Deliverable
 Standalone desktop application with system integration.

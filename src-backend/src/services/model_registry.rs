@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::db::Database;
 use crate::services::config_store::ConfigStore;
@@ -47,6 +46,13 @@ impl ModelRegistry {
         while let Some(entry) = entries.next_entry().await? {
             let file_path = entry.path();
             if file_path.extension().is_some_and(|ext| ext == "gguf") {
+                let path_str = file_path.to_string_lossy().to_string();
+
+                // Skip models that are already registered by path
+                if self.db.model_exists_by_path(&path_str).await.unwrap_or(false) {
+                    continue;
+                }
+
                 let metadata = entry.metadata().await?;
                 let name = file_path
                     .file_stem()
@@ -56,7 +62,7 @@ impl ModelRegistry {
                 let model = Model {
                     id: uuid::Uuid::new_v4().to_string(),
                     name,
-                    path: file_path.to_string_lossy().to_string(),
+                    path: path_str,
                     size_bytes: metadata.len(),
                     quantization: Self::detect_quantization(&file_path),
                     architecture: None,

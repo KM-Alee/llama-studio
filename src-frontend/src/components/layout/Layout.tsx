@@ -3,10 +3,22 @@ import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { StatusBar } from './StatusBar'
 import { useAppStore } from '@/stores/appStore'
+import { useWebSocket } from '@/lib/useWebSocket'
+import { useTheme } from '@/lib/useTheme'
+import { useKeyboardShortcuts } from '@/lib/useKeyboardShortcuts'
 import { cn } from '@/lib/utils'
 
 export function Layout() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+
+  // Establish WebSocket for real-time server status updates
+  useWebSocket()
+
+  // Apply theme (dark/light/system) to the document
+  useTheme()
+
+  // Register global keyboard shortcuts
+  useKeyboardShortcuts()
 
   return (
     <div className="flex h-screen bg-surface text-text overflow-hidden">
