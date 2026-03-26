@@ -7,6 +7,7 @@ use axum::response::sse::Event;
 use futures::stream::Stream;
 use serde::{Deserialize, Serialize};
 use tokio::process::{Child, Command};
+use tokio::sync::broadcast;
 
 use crate::db::Database;
 use crate::error::{AppError, AppResult};
@@ -17,6 +18,10 @@ use crate::services::config_store::ConfigStore;
 const HEALTH_POLL_INTERVAL_MS: u64 = 500;
 /// Maximum number of health polls before giving up.
 const HEALTH_POLL_MAX_ATTEMPTS: u32 = 60;
+/// Max log lines to keep in memory.
+const MAX_LOG_LINES: usize = 2000;
+/// How often to check whether the running process is still alive.
+const EXIT_MONITOR_INTERVAL_MS: u64 = 3000;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -40,22 +45,36 @@ impl std::fmt::Display for ServerStatus {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct LogEntry {
+    pub timestamp: String,
+    pub line: String,
+}
+
 pub struct LlamaProcessManager {
     config: Arc<ConfigStore>,
     db: Arc<Database>,
     child: Option<Child>,
     status: ServerStatus,
     current_model: Option<String>,
+    /// Shared log ring-buffer — also written by the stderr-reader background task.
+    logs: Arc<std::sync::Mutex<Vec<LogEntry>>>,
+    log_tx: broadcast::Sender<LogEntry>,
+    custom_flags: Vec<String>,
 }
 
 impl LlamaProcessManager {
     pub fn new(config: Arc<ConfigStore>, db: Arc<Database>) -> Self {
+        let (log_tx, _) = broadcast::channel(256);
         Self {
             config,
             db,
             child: None,
             status: ServerStatus::Stopped,
             current_model: None,
+            logs: Arc::new(std::sync::Mutex::new(Vec::new())),
+            log_tx,
+            custom_flags: Vec::new(),
         }
     }
 
@@ -69,6 +88,36 @@ impl LlamaProcessManager {
 
     pub async fn port(&self) -> u16 {
         self.config.get_llama_port().await
+    }
+
+    pub fn get_logs(&self) -> Vec<LogEntry> {
+        self.logs.lock().unwrap().clone()
+    }
+
+    pub fn subscribe_logs(&self) -> broadcast::Receiver<LogEntry> {
+        self.log_tx.subscribe()
+    }
+
+    pub fn set_custom_flags(&mut self, flags: Vec<String>) {
+        self.custom_flags = flags;
+    }
+
+    pub fn get_custom_flags(&self) -> &[String] {
+        &self.custom_flags
+    }
+
+    fn push_log(&mut self, line: String) {
+        let entry = LogEntry {
+            timestamp: chrono::Utc::now().to_rfc3339(),
+            line,
+        };
+        let _ = self.log_tx.send(entry.clone());
+        let mut logs = self.logs.lock().unwrap();
+        logs.push(entry);
+        if logs.len() > MAX_LOG_LINES {
+            let excess = logs.len() - MAX_LOG_LINES;
+            logs.drain(0..excess);
+        }
     }
 
     /// Resolve model_id to a filesystem path by looking it up in the database.
@@ -86,6 +135,7 @@ impl LlamaProcessManager {
         }
 
         self.status = ServerStatus::Starting;
+        self.logs.lock().unwrap().clear();
 
         let model_path = self.resolve_model_path(model_id).await;
         let config = self.config.get_all().await
@@ -103,28 +153,56 @@ impl LlamaProcessManager {
             .arg("--host").arg("127.0.0.1")
             .arg("-c").arg(config.context_size.to_string())
             .arg("-ngl").arg(config.gpu_layers.to_string())
-            .stdout(Stdio::piped())
+            .stdout(Stdio::null())
             .stderr(Stdio::piped());
 
         if config.threads > 0 {
             cmd.arg("-t").arg(config.threads.to_string());
         }
 
-        if config.flash_attention {
-            cmd.arg("-fa");
+        cmd.arg("--flash-attn")
+            .arg(if config.flash_attention { "on" } else { "off" });
+
+        // Apply custom CLI flags stored for advanced mode
+        for flag in &self.custom_flags {
+            cmd.arg(flag);
         }
 
         for arg in extra_args {
             cmd.arg(arg);
         }
 
+        self.push_log(format!("Starting llama.cpp: {} -m {}", llama_path, model_path));
         tracing::info!(model = %model_path, binary = %llama_path, "Spawning llama.cpp server");
 
         match cmd.spawn() {
-            Ok(child) => {
+            Ok(mut child) => {
+                // Capture stderr for log streaming
+                // Capture stderr: broadcast to WS subscribers AND persist to ring buffer.
+                if let Some(stderr) = child.stderr.take() {
+                    let log_tx = self.log_tx.clone();
+                    let log_store = self.logs.clone();
+                    tokio::spawn(async move {
+                        use tokio::io::{AsyncBufReadExt, BufReader};
+                        let reader = BufReader::new(stderr);
+                        let mut lines = reader.lines();
+                        while let Ok(Some(line)) = lines.next_line().await {
+                            let entry = LogEntry {
+                                timestamp: chrono::Utc::now().to_rfc3339(),
+                                line,
+                            };
+                            let _ = log_tx.send(entry.clone());
+                            let mut logs = log_store.lock().unwrap();
+                            logs.push(entry);
+                            if logs.len() > MAX_LOG_LINES {
+                                let excess = logs.len() - MAX_LOG_LINES;
+                                logs.drain(0..excess);
+                            }
+                        }
+                    });
+                }
                 self.child = Some(child);
                 self.current_model = Some(model_id.to_string());
-                // Status stays Starting — the caller should spawn a health poll task
                 Ok(())
             }
             Err(e) => {
@@ -162,6 +240,7 @@ impl LlamaProcessManager {
 
         self.status = ServerStatus::Stopped;
         self.current_model = None;
+        self.push_log("llama.cpp server stopped".to_string());
         tracing::info!("llama.cpp server stopped");
         Ok(())
     }
@@ -202,11 +281,28 @@ pub async fn poll_health_until_ready(
     for attempt in 1..=HEALTH_POLL_MAX_ATTEMPTS {
         tokio::time::sleep(std::time::Duration::from_millis(HEALTH_POLL_INTERVAL_MS)).await;
 
-        // Check if process is still alive / still Starting
+        // Check startup status and whether the child has already exited.
         {
-            let mgr = llama.read().await;
+            let mut mgr = llama.write().await;
             if *mgr.current_status() != ServerStatus::Starting {
                 return; // Aborted or already transitioned
+            }
+            if let Some(child) = &mut mgr.child {
+                match child.try_wait() {
+                    Ok(Some(exit_status)) => {
+                        let code = exit_status.code().unwrap_or(-1);
+                        let msg = format!(
+                            "llama.cpp exited with code {code} before becoming ready — \
+                             check llama_cpp_path and model file"
+                        );
+                        tracing::error!(%msg);
+                        mgr.push_log(msg);
+                        mgr.mark_error();
+                        return;
+                    }
+                    Ok(None) => {} // still running
+                    Err(e) => tracing::warn!(err = %e, "Could not poll child exit status"),
+                }
             }
         }
 
@@ -227,6 +323,50 @@ pub async fn poll_health_until_ready(
     mgr.mark_error();
 }
 
+    /// Monitor a running llama.cpp process and transition to Error if it exits unexpectedly.
+    /// Spawn this alongside `poll_health_until_ready` from the start-server handler.
+    pub async fn monitor_for_exit(llama: Arc<tokio::sync::RwLock<LlamaProcessManager>>) {
+        // First wait until the server enters Running state (or bail on any terminal state).
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(EXIT_MONITOR_INTERVAL_MS)).await;
+            let status = {
+                let mgr = llama.read().await;
+                mgr.current_status().clone()
+            };
+            match status {
+                ServerStatus::Running => break,
+                ServerStatus::Stopped | ServerStatus::Error | ServerStatus::Stopping => return,
+                ServerStatus::Starting => {}
+            }
+        }
+
+        // Periodically check whether the child is still alive.
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(EXIT_MONITOR_INTERVAL_MS)).await;
+            let mut mgr = llama.write().await;
+            if mgr.status != ServerStatus::Running {
+                return;
+            }
+            if let Some(child) = &mut mgr.child {
+                match child.try_wait() {
+                    Ok(Some(exit_status)) => {
+                        let code = exit_status.code().unwrap_or(-1);
+                        let msg = format!("llama.cpp exited unexpectedly (code {code})");
+                        tracing::error!(%msg);
+                        mgr.push_log(msg);
+                        mgr.status = ServerStatus::Error;
+                        mgr.child = None;
+                        return;
+                    }
+                    Ok(None) => {} // still alive
+                    Err(e) => tracing::warn!(err = %e, "Could not poll child exit status"),
+                }
+            } else {
+                return;
+            }
+        }
+    }
+
 /// Creates a chat completion SSE stream by proxying to llama.cpp.
 /// Properly parses llama.cpp's SSE output and re-emits clean SSE events.
 pub async fn create_chat_stream(
@@ -235,15 +375,32 @@ pub async fn create_chat_stream(
 ) -> AppResult<impl Stream<Item = Result<Event, Infallible>>> {
     let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
 
-    let body = serde_json::json!({
-        "messages": req.messages.iter().map(|m| {
-            serde_json::json!({
-                "role": m.role,
-                "content": m.content,
-            })
-        }).collect::<Vec<_>>(),
+    // Build messages, prepending system prompt if provided
+    let mut messages: Vec<serde_json::Value> = Vec::new();
+    if let Some(ref sys) = req.system_prompt {
+        messages.push(serde_json::json!({"role": "system", "content": sys}));
+    }
+    for m in &req.messages {
+        messages.push(serde_json::json!({"role": &m.role, "content": &m.content}));
+    }
+
+    let mut body = serde_json::json!({
+        "messages": messages,
         "stream": true,
     });
+
+    // Forward optional inference parameters to llama.cpp
+    let obj = body.as_object_mut().unwrap();
+    if let Some(v) = req.temperature { obj.insert("temperature".into(), v.into()); }
+    if let Some(v) = req.top_p { obj.insert("top_p".into(), v.into()); }
+    if let Some(v) = req.top_k { obj.insert("top_k".into(), v.into()); }
+    if let Some(v) = req.repeat_penalty { obj.insert("repeat_penalty".into(), v.into()); }
+    if let Some(v) = req.max_tokens { obj.insert("max_tokens".into(), v.into()); }
+    if let Some(ref v) = req.stop { obj.insert("stop".into(), serde_json::json!(v)); }
+    if let Some(v) = req.frequency_penalty { obj.insert("frequency_penalty".into(), v.into()); }
+    if let Some(v) = req.presence_penalty { obj.insert("presence_penalty".into(), v.into()); }
+    if let Some(v) = req.seed { obj.insert("seed".into(), v.into()); }
+    if let Some(ref v) = req.grammar { obj.insert("grammar".into(), v.clone().into()); }
 
     let client = reqwest::Client::new();
     let response = client

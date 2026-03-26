@@ -19,16 +19,26 @@ pub fn router() -> Router<AppState> {
         .route("/completions", post(chat_completions))
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
     #[serde(default = "default_stream")]
     pub stream: bool,
-    #[serde(flatten)]
-    pub params: Value,
+    // Inference parameters (all optional — llama.cpp uses its defaults if omitted)
+    pub temperature: Option<f64>,
+    pub top_p: Option<f64>,
+    pub top_k: Option<i32>,
+    pub repeat_penalty: Option<f64>,
+    pub max_tokens: Option<i32>,
+    pub stop: Option<Vec<String>>,
+    pub frequency_penalty: Option<f64>,
+    pub presence_penalty: Option<f64>,
+    pub seed: Option<i64>,
+    pub grammar: Option<String>,
+    pub system_prompt: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct ChatMessage {
     pub role: String,
     pub content: String,

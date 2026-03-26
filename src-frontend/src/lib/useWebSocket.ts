@@ -26,9 +26,8 @@ export function useWebSocket() {
         const msg: WsMessage = JSON.parse(event.data)
         if (msg.type === 'server_status' && msg.status) {
           setStatus(msg.status as ServerStatus)
-          if (msg.model) {
-            setActiveModel(msg.model)
-          }
+          // Always sync active model — null means nothing is loaded
+          setActiveModel(msg.model ?? null)
         }
       } catch {
         // Ignore malformed frames

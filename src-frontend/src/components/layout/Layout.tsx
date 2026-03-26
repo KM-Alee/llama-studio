@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { TopBar } from './TopBar'
 import { StatusBar } from './StatusBar'
+import { CommandPalette } from '@/components/CommandPalette'
 import { useAppStore } from '@/stores/appStore'
 import { useWebSocket } from '@/lib/useWebSocket'
 import { useTheme } from '@/lib/useTheme'
@@ -10,6 +11,8 @@ import { cn } from '@/lib/utils'
 
 export function Layout() {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
+  const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen)
+  const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen)
 
   // Establish WebSocket for real-time server status updates
   useWebSocket()
@@ -26,7 +29,7 @@ export function Layout() {
       <div
         className={cn(
           'flex flex-col flex-1 min-w-0 transition-all duration-200',
-          sidebarOpen ? 'ml-72' : 'ml-0'
+          sidebarOpen ? 'ml-64' : 'ml-0'
         )}
       >
         <TopBar />
@@ -35,6 +38,10 @@ export function Layout() {
         </main>
         <StatusBar />
       </div>
+      <CommandPalette
+        open={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+      />
     </div>
   )
 }

@@ -21,6 +21,22 @@ export const getHealth = () => request<{ status: string; version: string }>('/he
 export const getModels = () => request<{ models: any[] }>('/models')
 export const scanModels = () => request<{ scanned: number }>('/models/scan', { method: 'POST' })
 export const deleteModel = (id: string) => request(`/models/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const importModel = (path: string) =>
+  request('/models/import', { method: 'POST', body: JSON.stringify({ path }) })
+
+// Downloads
+export const getDownloads = () => request<{ downloads: any[] }>('/downloads')
+export const startDownload = (url: string, filename: string) =>
+  request<{ id: string }>('/downloads/start', {
+    method: 'POST',
+    body: JSON.stringify({ url, filename }),
+  })
+export const cancelDownload = (id: string) =>
+  request(`/downloads/${encodeURIComponent(id)}/cancel`, { method: 'POST' })
+
+// HuggingFace
+export const searchHuggingFace = (q: string, limit = 20) =>
+  request<{ models: any[] }>(`/huggingface/search?q=${encodeURIComponent(q)}&limit=${limit}`)
 
 // Server
 export const startServer = (modelId: string, extraArgs: string[] = []) =>
@@ -30,6 +46,12 @@ export const startServer = (modelId: string, extraArgs: string[] = []) =>
   })
 export const stopServer = () => request('/server/stop', { method: 'POST' })
 export const getServerStatus = () => request<{ status: string; model: string | null }>('/server/status')
+export const getServerLogs = () => request<{ logs: { timestamp: string; line: string }[] }>('/server/logs')
+export const getServerFlags = () => request<{ flags: string[] }>('/server/flags')
+export const setServerFlags = (flags: string[]) =>
+  request<{ flags: string[] }>('/server/flags', { method: 'PUT', body: JSON.stringify({ flags }) })
+export const getServerMetrics = () => request<any>('/server/metrics')
+export const detectHardware = () => request<{ hardware: any }>('/server/hardware')
 
 // Conversations
 export const getConversations = () => request<{ conversations: any[] }>('/conversations')
@@ -43,6 +65,20 @@ export const getConversation = (id: string) =>
   request<{ conversation: any; messages: any[] }>(`/conversations/${encodeURIComponent(id)}`)
 export const deleteConversation = (id: string) =>
   request(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const searchConversations = (q: string) =>
+  request<{ conversations: any[] }>(`/conversations/search?q=${encodeURIComponent(q)}`)
+export const exportConversationJson = (id: string) =>
+  request<any>(`/conversations/${encodeURIComponent(id)}/export/json`)
+export const exportConversationMarkdown = async (id: string): Promise<string> => {
+  const res = await fetch(`${API_BASE}/conversations/${encodeURIComponent(id)}/export/markdown`)
+  if (!res.ok) throw new Error('Export failed')
+  return res.text()
+}
+export const forkConversation = (id: string, afterMessageId?: string) =>
+  request<any>(`/conversations/${encodeURIComponent(id)}/fork`, {
+    method: 'POST',
+    body: JSON.stringify({ after_message_id: afterMessageId }),
+  })
 
 // Messages
 export const getMessages = (conversationId: string) =>
@@ -61,11 +97,12 @@ export const addMessage = (conversationId: string, data: {
 // Chat — SSE streaming that parses OpenAI-format SSE from the backend
 export async function* streamChat(
   messages: { role: string; content: string }[],
+  params?: Record<string, any>,
 ): AsyncGenerator<string> {
   const res = await fetch(`${API_BASE}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, stream: true }),
+    body: JSON.stringify({ messages, stream: true, ...params }),
   })
 
   if (!res.ok) throw new Error('Chat request failed')

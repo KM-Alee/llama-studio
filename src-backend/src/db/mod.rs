@@ -416,4 +416,39 @@ impl Database {
         conn.execute("DELETE FROM presets WHERE id = ?1 AND is_builtin = 0", [id])?;
         Ok(())
     }
+
+    // === Search ===
+
+    /// Full-text search across conversations and messages.
+    pub async fn search_conversations(&self, query: &str) -> Result<Vec<Conversation>> {
+        let conn = self.conn.lock().unwrap();
+        let pattern = format!("%{}%", query);
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT c.id, c.title, c.model_id, c.preset_id, c.system_prompt, c.created_at, c.updated_at
+             FROM conversations c
+             LEFT JOIN messages m ON m.conversation_id = c.id
+             WHERE c.title LIKE ?1 OR m.content LIKE ?1
+             ORDER BY c.updated_at DESC
+             LIMIT 50"
+        )?;
+        let convos = stmt.query_map([&pattern], |row| {
+            Ok(Conversation {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                model_id: row.get(2)?,
+                preset_id: row.get(3)?,
+                system_prompt: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        })?.filter_map(|r| r.ok()).collect();
+        Ok(convos)
+    }
+
+    /// Delete a single message by ID.
+    pub async fn delete_message(&self, msg_id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM messages WHERE id = ?1", [msg_id])?;
+        Ok(())
+    }
 }

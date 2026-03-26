@@ -5,5 +5,7 @@ pub mod chat;
 pub mod conversations;
 pub mod presets;
 pub mod config;
+pub mod downloads;
+pub mod huggingface;
 pub mod static_files;
 pub mod ws;

@@ -44,7 +44,7 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 mb-1 w-56 bg-surface border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute bottom-full left-0 mb-1 w-56 bg-surface border border-border rounded-lg shadow-md z-50 overflow-hidden">
           <div className="py-1">
             <button
               onClick={() => {

@@ -72,7 +72,7 @@ export function ModelSelector() {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-surface border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1 w-72 bg-surface border border-border rounded-lg shadow-md z-50 overflow-hidden">
           {modelList.length === 0 ? (
             <div className="p-4 text-sm text-text-muted text-center">
               No models available. Scan for models on the Models page.

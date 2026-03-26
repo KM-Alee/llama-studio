@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
-import { Send, Square, Sparkles } from 'lucide-react'
+import { ArrowUp, Square, MessageCircle, SlidersHorizontal, FileText, Terminal } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
@@ -16,6 +16,11 @@ import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 import { MessageBubble } from './MessageBubble'
 import { PresetSelector } from './PresetSelector'
+import { ParameterPanel, DEFAULT_PARAMS, type InferenceParams } from './ParameterPanel'
+import { SystemPromptEditor } from './SystemPromptEditor'
+import { LogViewer } from './LogViewer'
+
+type SidePanel = 'params' | 'system-prompt' | 'logs' | null
 
 export function ChatView() {
   const { conversationId } = useParams<{ conversationId?: string }>()
@@ -24,6 +29,9 @@ export function ChatView() {
 
   const [input, setInput] = useState('')
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
+  const [sidePanel, setSidePanel] = useState<SidePanel>(null)
+  const [inferenceParams, setInferenceParams] = useState<InferenceParams>({ ...DEFAULT_PARAMS })
+  const [systemPrompt, setSystemPrompt] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -119,9 +127,13 @@ export function ChatView() {
         content: m.content,
       }))
 
-      // Stream the response
+      // Stream the response, passing inference params if in advanced mode
       let fullContent = ''
-      for await (const chunk of streamChat(chatMessages)) {
+      const chatOptions = profile === 'advanced' ? {
+        ...inferenceParams,
+        system_prompt: systemPrompt || undefined,
+      } : undefined
+      for await (const chunk of streamChat(chatMessages, chatOptions)) {
         fullContent += chunk
         appendStreamContent(chunk)
       }
@@ -179,110 +191,158 @@ export function ChatView() {
   }, [input, autoResize])
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-text-muted gap-4">
-            <Sparkles className="w-12 h-12 text-primary/30" />
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-text mb-2">Start a conversation</h2>
-              <p className="text-sm max-w-md">
-                {isServerReady
-                  ? 'Type a message below to start chatting with your model.'
-                  : 'Start a model first from the Models page, then come back to chat.'}
-              </p>
+    <div className="flex h-full">
+      {/* Main chat area */}
+      <div className="flex flex-col flex-1 min-w-0">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto">
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 px-4">
+              <div className="w-10 h-10 rounded-full bg-surface-dim border border-border flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-text-muted" />
+              </div>
+              <div className="text-center max-w-sm">
+                <h2 className="text-base font-medium text-text mb-1">New conversation</h2>
+                <p className="text-sm text-text-muted">
+                  {isServerReady
+                    ? 'Send a message to get started.'
+                    : 'Load a model from the Models page to begin.'}
+                </p>
+              </div>
+
+              {isServerReady && presetsData?.presets && (
+                <div className="flex flex-wrap gap-1.5 mt-2 max-w-md justify-center">
+                  {presetsData.presets.slice(0, 4).map((preset: any) => (
+                    <button
+                      key={preset.id}
+                      className="px-3 py-1.5 rounded-lg bg-surface-dim text-xs text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+          ) : (
+            <div className="max-w-2xl mx-auto py-6 px-4 space-y-5">
+              {messages.map((msg) => (
+                <MessageBubble key={msg.id} message={msg} />
+              ))}
+              {isStreaming && streamingContent && (
+                <MessageBubble
+                  message={{
+                    id: 'streaming',
+                    role: 'assistant',
+                    content: streamingContent,
+                    createdAt: new Date().toISOString(),
+                  }}
+                  isStreaming
+                />
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
 
-            {/* Quick Presets */}
-            {isServerReady && presetsData?.presets && (
-              <div className="flex flex-wrap gap-2 mt-4 max-w-lg justify-center">
-                {presetsData.presets.slice(0, 4).map((preset: any) => (
-                  <button
-                    key={preset.id}
-                    className="px-3 py-1.5 rounded-full bg-surface-dim border border-border text-xs text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
-                  >
-                    {preset.name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="max-w-3xl mx-auto py-6 px-4 space-y-4">
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
-            {isStreaming && streamingContent && (
-              <MessageBubble
-                message={{
-                  id: 'streaming',
-                  role: 'assistant',
-                  content: streamingContent,
-                  createdAt: new Date().toISOString(),
-                }}
-                isStreaming
+        {/* Input Area */}
+        <div className="bg-surface px-4 pb-4 pt-2">
+          <div className="max-w-2xl mx-auto">
+            <div className="relative flex items-end gap-2 bg-surface-dim border border-border rounded-xl p-2.5 focus-within:border-text-muted/40 transition-colors">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  isServerReady
+                    ? 'Message...'
+                    : 'Load a model to start chatting...'
+                }
+                disabled={!isServerReady}
+                rows={1}
+                className="flex-1 bg-transparent resize-none outline-none text-text placeholder-text-muted text-sm max-h-[200px] min-h-[36px] py-1 px-1 disabled:opacity-40"
               />
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </div>
-
-      {/* Input Area */}
-      <div className="border-t border-border bg-surface p-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="relative flex items-end gap-2 bg-surface-dim border border-border rounded-2xl p-3 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                isServerReady
-                  ? 'Type a message... (Shift+Enter for new line)'
-                  : 'Start a model to begin chatting...'
-              }
-              disabled={!isServerReady}
-              rows={1}
-              className="flex-1 bg-transparent resize-none outline-none text-text placeholder-text-muted text-sm max-h-[200px] min-h-[36px] py-1.5 disabled:opacity-50"
-            />
-            <button
-              onClick={isStreaming ? () => setStreaming(false) : handleSend}
-              disabled={!isServerReady || (!input.trim() && !isStreaming)}
-              className={cn(
-                'p-2 rounded-xl transition-colors shrink-0',
-                isStreaming
-                  ? 'bg-error text-white hover:bg-error/80'
-                  : 'bg-primary text-white hover:bg-primary-hover disabled:opacity-30 disabled:cursor-not-allowed'
+              <button
+                onClick={isStreaming ? () => setStreaming(false) : handleSend}
+                disabled={!isServerReady || (!input.trim() && !isStreaming)}
+                className={cn(
+                  'p-1.5 rounded-lg transition-colors shrink-0',
+                  isStreaming
+                    ? 'bg-error text-white hover:bg-error/80'
+                    : 'bg-primary text-white hover:bg-primary-hover disabled:opacity-20 disabled:cursor-not-allowed'
+                )}
+              >
+                {isStreaming ? (
+                  <Square className="w-3.5 h-3.5" />
+                ) : (
+                  <ArrowUp className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+            <div className="flex items-center justify-between mt-1.5 px-1">
+              <PresetSelector
+                selectedPresetId={selectedPresetId}
+                onSelect={setSelectedPresetId}
+              />
+              {profile === 'advanced' && (
+                <div className="flex items-center gap-2 text-[11px] text-text-muted">
+                  <span>{input.length}c / ~{estimatedTokens}t</span>
+                  <div className="w-px h-3 bg-border" />
+                  <button
+                    onClick={() => setSidePanel(sidePanel === 'params' ? null : 'params')}
+                    className={cn(
+                      'p-1 rounded hover:text-text transition-colors',
+                      sidePanel === 'params' && 'text-primary'
+                    )}
+                    title="Parameters"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setSidePanel(sidePanel === 'system-prompt' ? null : 'system-prompt')}
+                    className={cn(
+                      'p-1 rounded hover:text-text transition-colors',
+                      sidePanel === 'system-prompt' && 'text-primary'
+                    )}
+                    title="System Prompt"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setSidePanel(sidePanel === 'logs' ? null : 'logs')}
+                    className={cn(
+                      'p-1 rounded hover:text-text transition-colors',
+                      sidePanel === 'logs' && 'text-primary'
+                    )}
+                    title="Logs"
+                  >
+                    <Terminal className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )}
-            >
-              {isStreaming ? (
-                <Square className="w-4 h-4" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </button>
-          </div>
-          <div className="flex items-center justify-between mt-2">
-            <PresetSelector
-              selectedPresetId={selectedPresetId}
-              onSelect={setSelectedPresetId}
-            />
-            {profile === 'advanced' && (
-              <div className="flex items-center gap-3 text-xs text-text-muted">
-                <span>{input.length} chars</span>
-                <span>·</span>
-                <span>~{estimatedTokens} tokens</span>
-                <span>·</span>
-                <button className="hover:text-text transition-colors">Parameters</button>
-                <span>·</span>
-                <button className="hover:text-text transition-colors">System Prompt</button>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Side panels (advanced mode) */}
+      {profile === 'advanced' && sidePanel === 'params' && (
+        <ParameterPanel
+          params={inferenceParams}
+          onChange={setInferenceParams}
+          onClose={() => setSidePanel(null)}
+        />
+      )}
+      {profile === 'advanced' && sidePanel === 'system-prompt' && (
+        <SystemPromptEditor
+          value={systemPrompt}
+          onChange={setSystemPrompt}
+          onClose={() => setSidePanel(null)}
+        />
+      )}
+      {profile === 'advanced' && sidePanel === 'logs' && (
+        <LogViewer onClose={() => setSidePanel(null)} />
+      )}
     </div>
   )
 }

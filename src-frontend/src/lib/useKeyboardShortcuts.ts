@@ -7,15 +7,15 @@ import { useChatStore } from '@/stores/chatStore'
  * Global keyboard shortcuts:
  * - Ctrl+Shift+N: New chat
  * - Ctrl+Shift+S: Toggle sidebar
- * - Ctrl+Shift+P: Toggle profile (normal/advanced)
+ * - Ctrl+Shift+P: Command palette
  * - Ctrl+Shift+M: Navigate to Models page
+ * - Ctrl+K: Command palette (alternative)
  * - Ctrl+,: Navigate to Settings
- * - Escape: Cancel streaming (when active)
+ * - Escape: Cancel streaming or close palette
  */
 export function useKeyboardShortcuts() {
   const navigate = useNavigate()
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
-  const toggleProfile = useAppStore((s) => s.toggleProfile)
   const setStreaming = useChatStore((s) => s.setStreaming)
 
   useEffect(() => {
@@ -38,10 +38,11 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Ctrl+Shift+P: Toggle profile
-      if (ctrl && e.shiftKey && e.key === 'P') {
+      // Ctrl+Shift+P or Ctrl+K: Command palette
+      if ((ctrl && e.shiftKey && e.key === 'P') || (ctrl && e.key === 'k')) {
         e.preventDefault()
-        toggleProfile()
+        const store = useAppStore.getState()
+        store.setCommandPaletteOpen(!store.commandPaletteOpen)
         return
       }
 
@@ -59,8 +60,14 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Escape: Cancel streaming
+      // Escape: Cancel streaming or close palette
       if (e.key === 'Escape') {
+        const appStore = useAppStore.getState()
+        if (appStore.commandPaletteOpen) {
+          e.preventDefault()
+          appStore.setCommandPaletteOpen(false)
+          return
+        }
         const store = useChatStore.getState()
         if (store.isStreaming) {
           e.preventDefault()
@@ -72,5 +79,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [navigate, toggleSidebar, toggleProfile, setStreaming])
+  }, [navigate, toggleSidebar, setStreaming])
 }

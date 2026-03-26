@@ -4,6 +4,7 @@ use tokio::sync::RwLock;
 
 use crate::db::Database;
 use crate::services::config_store::ConfigStore;
+use crate::services::download_manager::DownloadManager;
 use crate::services::llama_process::LlamaProcessManager;
 use crate::services::model_registry::ModelRegistry;
 use crate::services::preset_manager::PresetManager;
@@ -18,6 +19,7 @@ pub struct AppState {
     pub sessions: Arc<SessionManager>,
     pub config: Arc<ConfigStore>,
     pub presets: Arc<PresetManager>,
+    pub downloads: Arc<DownloadManager>,
 }
 
 impl AppState {
@@ -28,6 +30,7 @@ impl AppState {
         let models = Arc::new(ModelRegistry::new(db.clone(), config.clone()));
         let sessions = Arc::new(SessionManager::new(db.clone()));
         let presets = Arc::new(PresetManager::new(db.clone()).await?);
+        let downloads = Arc::new(DownloadManager::new(config.clone()));
 
         Ok(Self {
             db,
@@ -36,6 +39,7 @@ impl AppState {
             sessions,
             config,
             presets,
+            downloads,
         })
     }
 }

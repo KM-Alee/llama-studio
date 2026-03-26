@@ -89,4 +89,47 @@ impl SessionManager {
     pub async fn delete(&self, id: &str) -> Result<()> {
         self.db.delete_conversation(id).await
     }
+
+    /// Fork a conversation — creates a copy with all messages up to (and including)
+    /// the given message_id. If no message_id is provided, copies everything.
+    pub async fn fork(&self, id: &str, after_message_id: Option<&str>) -> Result<Value> {
+        let original = self.db.get_conversation(id).await?;
+        let original_messages = self.db.get_messages(id).await?;
+
+        let new_id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        let forked = Conversation {
+            id: new_id.clone(),
+            title: format!("{} (fork)", original.title),
+            model_id: original.model_id,
+            preset_id: original.preset_id,
+            system_prompt: original.system_prompt,
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        };
+        self.db.insert_conversation(&forked).await?;
+
+        // Copy messages up to the cutoff
+        for msg in &original_messages {
+            let new_msg = Message {
+                id: uuid::Uuid::new_v4().to_string(),
+                conversation_id: new_id.clone(),
+                role: msg.role.clone(),
+                content: msg.content.clone(),
+                tokens_used: msg.tokens_used,
+                generation_time_ms: msg.generation_time_ms,
+                created_at: msg.created_at.clone(),
+            };
+            self.db.insert_message(&new_msg).await?;
+
+            if let Some(cutoff) = after_message_id {
+                if msg.id == cutoff {
+                    break;
+                }
+            }
+        }
+
+        Ok(serde_json::json!(forked))
+    }
 }

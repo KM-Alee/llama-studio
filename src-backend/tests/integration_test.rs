@@ -31,6 +31,8 @@ async fn build_test_app() -> Router {
         .nest("/api/v1/conversations", routes::conversations::router())
         .nest("/api/v1/presets", routes::presets::router())
         .nest("/api/v1/config", routes::config::router())
+        .nest("/api/v1/downloads", routes::downloads::router())
+        .nest("/api/v1/huggingface", routes::huggingface::router())
         .with_state(state)
 }
 
@@ -70,6 +72,22 @@ async fn delete_json(app: &Router, uri: &str) -> (StatusCode, Value) {
         .method("DELETE")
         .uri(uri)
         .body(Body::empty())
+        .unwrap();
+
+    let response = app.clone().oneshot(req).await.unwrap();
+    let status = response.status();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let json: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, json)
+}
+
+/// Helper: send a PUT request with JSON body and return (status, body).
+async fn put_json(app: &Router, uri: &str, body: Value) -> (StatusCode, Value) {
+    let req = Request::builder()
+        .method("PUT")
+        .uri(uri)
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_string(&body).unwrap()))
         .unwrap();
 
     let response = app.clone().oneshot(req).await.unwrap();
@@ -251,4 +269,337 @@ async fn start_server_with_missing_model_returns_starting() {
     );
 }
 
-// Rust guideline compliant 2026-02-21
+// === Phase 4: Model Import ===
+
+#[tokio::test]
+async fn import_model_rejects_nonexistent_path() {
+    let app = build_test_app().await;
+    let (status, body) = post_json(
+        &app,
+        "/api/v1/models/import",
+        json!({ "path": "/nonexistent/model.gguf" }),
+    ).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(body["error"].as_str().unwrap().contains("not found") ||
+            body["error"].as_str().unwrap().contains("Not found") ||
+            body["error"].as_str().unwrap().contains("File not found"));
+}
+
+#[tokio::test]
+async fn import_model_rejects_non_gguf_file() {
+    // Create a temp file that isn't .gguf
+    let tmp = std::env::temp_dir().join("test_import.txt");
+    std::fs::write(&tmp, "test").unwrap();
+
+    let app = build_test_app().await;
+    let (status, body) = post_json(
+        &app,
+        "/api/v1/models/import",
+        json!({ "path": tmp.to_string_lossy() }),
+    ).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(body["error"].as_str().unwrap().contains("gguf"));
+    let _ = std::fs::remove_file(&tmp);
+}
+
+#[tokio::test]
+async fn import_model_accepts_valid_gguf() {
+    // Create a temp .gguf file with a unique name
+    let unique = uuid::Uuid::new_v4().to_string();
+    let tmp = std::env::temp_dir().join(format!("test_import_{}.gguf", unique));
+    std::fs::write(&tmp, "fake-gguf-content").unwrap();
+
+    let app = build_test_app().await;
+    let (status, body) = post_json(
+        &app,
+        "/api/v1/models/import",
+        json!({ "path": tmp.to_string_lossy() }),
+    ).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["id"].is_string());
+    let _ = std::fs::remove_file(&tmp);
+}
+
+// === Phase 4: Downloads ===
+
+#[tokio::test]
+async fn downloads_list_initially_empty() {
+    let app = build_test_app().await;
+    let (status, body) = get_json(&app, "/api/v1/downloads").await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["downloads"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn download_start_rejects_invalid_filename() {
+    let app = build_test_app().await;
+    let (status, body) = post_json(
+        &app,
+        "/api/v1/downloads/start",
+        json!({ "url": "https://example.com/model.gguf", "filename": "../evil.gguf" }),
+    ).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(body["error"].as_str().unwrap().contains("Invalid"));
+}
+
+#[tokio::test]
+async fn download_start_rejects_non_gguf_filename() {
+    let app = build_test_app().await;
+    let (status, body) = post_json(
+        &app,
+        "/api/v1/downloads/start",
+        json!({ "url": "https://example.com/model.bin", "filename": "model.bin" }),
+    ).await;
+
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(body["error"].as_str().unwrap().contains("gguf"));
+}
+
+// === Phase 4: Config Update ===
+
+#[tokio::test]
+async fn config_update_and_read_back() {
+    let app = build_test_app().await;
+
+    let (status, _) = put_json(
+        &app,
+        "/api/v1/config",
+        json!({ "context_size": 8192, "gpu_layers": 32 }),
+    ).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = get_json(&app, "/api/v1/config").await;
+    assert_eq!(status, StatusCode::OK);
+    // The config store merges, so our values should be present
+    assert!(body.is_object());
+}
+
+// === Phase 5: Server Logs ===
+
+#[tokio::test]
+async fn server_logs_initially_empty() {
+    let app = build_test_app().await;
+    let (status, body) = get_json(&app, "/api/v1/server/logs").await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["logs"].is_array());
+    assert!(body["logs"].as_array().unwrap().is_empty());
+}
+
+// === Phase 5: Custom CLI Flags ===
+
+#[tokio::test]
+async fn server_flags_get_initially_empty() {
+    let app = build_test_app().await;
+    let (status, body) = get_json(&app, "/api/v1/server/flags").await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["flags"].is_array());
+    assert!(body["flags"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn server_flags_set_and_get() {
+    let app = build_test_app().await;
+
+    let (status, body) = put_json(
+        &app,
+        "/api/v1/server/flags",
+        json!({ "flags": ["--mlock", "--no-mmap"] }),
+    ).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["flags"].as_array().unwrap().len(), 2);
+}
+
+// === Phase 5: Server Metrics ===
+
+#[tokio::test]
+async fn server_metrics_unavailable_when_stopped() {
+    let app = build_test_app().await;
+    let (status, body) = get_json(&app, "/api/v1/server/metrics").await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["available"], false);
+}
+
+// === Phase 5: Hardware Detection ===
+
+#[tokio::test]
+async fn hardware_detection_returns_info() {
+    let app = build_test_app().await;
+    let (status, body) = get_json(&app, "/api/v1/server/hardware").await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["hardware"].is_object());
+    assert!(body["hardware"]["cpu_cores"].as_u64().unwrap() > 0);
+}
+
+// === Phase 5: Chat with parameters ===
+
+#[tokio::test]
+async fn chat_with_params_fails_when_server_not_running() {
+    let app = build_test_app().await;
+    let (status, body) = post_json(
+        &app,
+        "/api/v1/chat/completions",
+        json!({
+            "messages": [{"role": "user", "content": "Hello"}],
+            "stream": true,
+            "temperature": 0.5,
+            "top_p": 0.9,
+            "system_prompt": "You are helpful"
+        }),
+    ).await;
+
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert!(body["error"].as_str().unwrap().contains("not running"));
+}
+
+// === Phase 6: Search Conversations ===
+
+#[tokio::test]
+async fn search_conversations_returns_results() {
+    let app = build_test_app().await;
+
+    // Create a conversation with known title
+    let (_, convo) = post_json(
+        &app,
+        "/api/v1/conversations",
+        json!({ "title": "Unique Quantum Physics Discussion" }),
+    ).await;
+    let convo_id = convo["id"].as_str().unwrap();
+
+    // Add a message with searchable content
+    post_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages", convo_id),
+        json!({ "role": "user", "content": "Tell me about quantum entanglement" }),
+    ).await;
+
+    // Search by title
+    let (status, body) = get_json(&app, "/api/v1/conversations/search?q=Quantum").await;
+    assert_eq!(status, StatusCode::OK);
+    let results = body["conversations"].as_array().unwrap();
+    assert!(!results.is_empty(), "Expected to find conversation by title");
+
+    // Search by message content
+    let (status, body) = get_json(&app, "/api/v1/conversations/search?q=entanglement").await;
+    assert_eq!(status, StatusCode::OK);
+    let results = body["conversations"].as_array().unwrap();
+    assert!(!results.is_empty(), "Expected to find conversation by message content");
+}
+
+#[tokio::test]
+async fn search_conversations_empty_query() {
+    let app = build_test_app().await;
+    let (status, body) = get_json(&app, "/api/v1/conversations/search?q=xyznonexistent999").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body["conversations"].as_array().unwrap().is_empty());
+}
+
+// === Phase 6: Export ===
+
+#[tokio::test]
+async fn export_conversation_json() {
+    let app = build_test_app().await;
+
+    let (_, convo) = post_json(
+        &app,
+        "/api/v1/conversations",
+        json!({ "title": "Export Test" }),
+    ).await;
+    let convo_id = convo["id"].as_str().unwrap();
+
+    post_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages", convo_id),
+        json!({ "role": "user", "content": "Hello export" }),
+    ).await;
+
+    let (status, body) = get_json(&app, &format!("/api/v1/conversations/{}/export/json", convo_id)).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["conversation"]["title"], "Export Test");
+    assert_eq!(body["messages"][0]["content"], "Hello export");
+}
+
+#[tokio::test]
+async fn export_conversation_markdown() {
+    let app = build_test_app().await;
+
+    let (_, convo) = post_json(
+        &app,
+        "/api/v1/conversations",
+        json!({ "title": "MD Export" }),
+    ).await;
+    let convo_id = convo["id"].as_str().unwrap();
+
+    post_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages", convo_id),
+        json!({ "role": "user", "content": "Markdown test content" }),
+    ).await;
+
+    // The markdown export returns a plain string, not JSON
+    let req = Request::builder()
+        .uri(&format!("/api/v1/conversations/{}/export/markdown", convo_id))
+        .body(Body::empty())
+        .unwrap();
+    let response = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let md = String::from_utf8_lossy(&bytes);
+    assert!(md.contains("# MD Export"));
+    assert!(md.contains("Markdown test content"));
+}
+
+// === Phase 6: Fork Conversation ===
+
+#[tokio::test]
+async fn fork_conversation_copies_messages() {
+    let app = build_test_app().await;
+
+    let (_, convo) = post_json(
+        &app,
+        "/api/v1/conversations",
+        json!({ "title": "Fork Source" }),
+    ).await;
+    let convo_id = convo["id"].as_str().unwrap();
+
+    post_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages", convo_id),
+        json!({ "role": "user", "content": "First message" }),
+    ).await;
+
+    post_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages", convo_id),
+        json!({ "role": "assistant", "content": "Response" }),
+    ).await;
+
+    // Fork the conversation
+    let (status, forked) = post_json(
+        &app,
+        &format!("/api/v1/conversations/{}/fork", convo_id),
+        json!({}),
+    ).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(forked["title"].as_str().unwrap().contains("(fork)"));
+    let forked_id = forked["id"].as_str().unwrap();
+
+    // Verify the forked conversation has all messages
+    let (status, body) = get_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages", forked_id),
+    ).await;
+    assert_eq!(status, StatusCode::OK);
+    let msgs = body["messages"].as_array().unwrap();
+    assert_eq!(msgs.len(), 2);
+    assert_eq!(msgs[0]["content"], "First message");
+    assert_eq!(msgs[1]["content"], "Response");
+}
