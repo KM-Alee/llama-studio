@@ -1,7 +1,14 @@
+---
+name: react-frontend
+description: Use when building or changing the AI Studio React frontend, including routes, pages, components, Zustand stores, TanStack Query usage, API client wiring, Tailwind styling, and normal versus advanced profile UI.
+---
+
 # SKILL: React Frontend Development
 
 ## Overview
 Guidelines for developing the React/TypeScript/Tailwind frontend of AI Studio.
+
+This skill is the repo-specific supplement for UI work in `src-frontend/`.
 
 ## Library Quick Reference
 

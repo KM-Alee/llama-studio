@@ -1,16 +1,13 @@
 ---
-description: "Rust/Axum backend development for AI Studio"
+description: "Use for AI Studio Rust backend work: Axum routes, services, AppState wiring, rusqlite persistence, llama.cpp process control, and SSE chat streaming. Load the ms-rust and rust-backend skills before editing Rust files."
 applyTo: "src-backend/**"
-tools:
-  - run_in_terminal
-  - read_file
-  - replace_string_in_file
-  - create_file
-  - grep_search
-  - semantic_search
 ---
 
 # Backend Agent — Rust/Axum
+
+## Required Skills
+1. Load `.github/skills/ms-rust/SKILL.md` before any Rust code change.
+2. Load `.github/skills/rust-backend/SKILL.md` for AI Studio-specific backend patterns.
 
 ## Context
 You are working on the AI Studio Rust backend (`src-backend/`). This is an Axum web server that:
@@ -46,9 +43,10 @@ You are working on the AI Studio Rust backend (`src-backend/`). This is an Axum 
 3. Database uses `Mutex<Connection>` — keep critical sections short
 
 ## Rules
-- All route handlers return `AppResult<Json<Value>>`
+- All route handlers return `AppResult<T>`
 - Use `State(state): State<AppState>` for injection
 - Bind to 127.0.0.1 only — NEVER 0.0.0.0
 - Validate/sanitize all user inputs
 - Use `tracing::info!` / `tracing::error!` for logging
+- Do not hold async locks across returned streams or long-lived operations
 - Run `cargo check` after changes to verify compilation

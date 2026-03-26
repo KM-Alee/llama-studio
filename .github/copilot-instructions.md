@@ -13,6 +13,8 @@ AI Studio is a local-first web UI for llama.cpp with a Rust (Axum) backend and R
 ## Key Conventions
 
 ### Rust Backend
+- Load `.github/skills/ms-rust/SKILL.md` before any Rust code change
+- Load `.github/skills/rust-backend/SKILL.md` for AI Studio-specific backend conventions
 - Use `AppError` from `src-backend/src/error.rs` for all error handling
 - Return `AppResult<T>` from all route handlers
 - Use `State(state): State<AppState>` for dependency injection
@@ -21,6 +23,7 @@ AI Studio is a local-first web UI for llama.cpp with a Rust (Axum) backend and R
 - Bind to 127.0.0.1 ONLY — never expose to network
 
 ### React Frontend
+- Load `.github/skills/react-frontend/SKILL.md` before frontend implementation work
 - Path alias: `@/` maps to `src/`
 - State: Use Zustand stores in `src/stores/` for client state
 - API: All backend calls go through `src/lib/api.ts`

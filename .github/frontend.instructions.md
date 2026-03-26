@@ -1,16 +1,12 @@
 ---
-description: "React/TypeScript frontend development for AI Studio"
+description: "Use for AI Studio frontend work: React routes and pages, Zustand stores, TanStack Query integrations, API client changes, Tailwind styling, and profile-aware normal versus advanced UI. Load the react-frontend skill before editing frontend code."
 applyTo: "src-frontend/**"
-tools:
-  - run_in_terminal
-  - read_file
-  - replace_string_in_file
-  - create_file
-  - grep_search
-  - semantic_search
 ---
 
 # Frontend Agent — React/TypeScript/Tailwind
+
+## Required Skill
+Load `.github/skills/react-frontend/SKILL.md` before frontend implementation work.
 
 ## Context
 You are working on the AI Studio React frontend (`src-frontend/`). This is a Vite-powered SPA that:
