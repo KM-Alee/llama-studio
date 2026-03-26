@@ -171,6 +171,31 @@ impl LlamaProcessManager {
         cmd.arg("--flash-attn")
             .arg(if config.flash_attention { "on" } else { "off" });
 
+        if let Some(batch_size) = config.batch_size {
+            cmd.arg("--batch-size").arg(batch_size.to_string());
+        }
+        if let Some(ubatch_size) = config.ubatch_size {
+            cmd.arg("--ubatch-size").arg(ubatch_size.to_string());
+        }
+        if let Some(ref rope_scaling) = config.rope_scaling {
+            cmd.arg("--rope-scaling").arg(rope_scaling);
+        }
+        if let Some(rope_freq_base) = config.rope_freq_base {
+            cmd.arg("--rope-freq-base").arg(rope_freq_base.to_string());
+        }
+        if let Some(rope_freq_scale) = config.rope_freq_scale {
+            cmd.arg("--rope-freq-scale").arg(rope_freq_scale.to_string());
+        }
+        if let Some(mmap) = config.mmap {
+            cmd.arg(if mmap { "--mmap" } else { "--no-mmap" });
+        }
+        if let Some(true) = config.mlock {
+            cmd.arg("--mlock");
+        }
+        if let Some(cont_batching) = config.cont_batching {
+            cmd.arg(if cont_batching { "--cont-batching" } else { "--no-cont-batching" });
+        }
+
         // Apply custom CLI flags stored for advanced mode
         for flag in &self.custom_flags {
             if Self::validate_flag(flag) {
@@ -417,6 +442,12 @@ pub async fn create_chat_stream(
     if let Some(v) = req.presence_penalty { obj.insert("presence_penalty".into(), v.into()); }
     if let Some(v) = req.seed { obj.insert("seed".into(), v.into()); }
     if let Some(ref v) = req.grammar { obj.insert("grammar".into(), v.clone().into()); }
+    if let Some(v) = req.min_p { obj.insert("min_p".into(), v.into()); }
+    if let Some(v) = req.typical_p { obj.insert("typical_p".into(), v.into()); }
+    if let Some(v) = req.mirostat { obj.insert("mirostat".into(), v.into()); }
+    if let Some(v) = req.mirostat_tau { obj.insert("mirostat_tau".into(), v.into()); }
+    if let Some(v) = req.mirostat_eta { obj.insert("mirostat_eta".into(), v.into()); }
+    if let Some(v) = req.tfs_z { obj.insert("tfs_z".into(), v.into()); }
 
     let client = reqwest::Client::new();
     let response = client

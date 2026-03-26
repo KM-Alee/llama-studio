@@ -1,4 +1,4 @@
-//! Integration tests for the AI Studio backend.
+//! Integration tests for the Llama Studio backend.
 //!
 //! Tests the HTTP API endpoints by launching the full Axum router
 //! with an in-memory test state. Does not require a running llama.cpp
@@ -106,7 +106,7 @@ async fn health_returns_ok() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "ok");
-    assert_eq!(body["name"], "AI Studio");
+    assert_eq!(body["name"], "Llama Studio");
     assert!(body["version"].is_string());
 }
 

@@ -29,7 +29,7 @@ export function Layout() {
       <div
         className={cn(
           'flex flex-col flex-1 min-w-0 transition-all duration-200',
-          sidebarOpen ? 'ml-64' : 'ml-0'
+          sidebarOpen ? 'ml-72' : 'ml-0'
         )}
       >
         <TopBar />

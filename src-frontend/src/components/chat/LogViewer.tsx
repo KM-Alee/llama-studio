@@ -53,15 +53,15 @@ export function LogViewer({ onClose }: LogViewerProps) {
 
   return (
     <div className="w-96 border-l border-border bg-surface h-full flex flex-col">
-      <div className="flex items-center justify-between p-3 border-b border-border">
-        <h3 className="text-sm font-semibold text-text">Server Logs</h3>
-        <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between p-4 border-b border-border">
+        <h3 className="text-sm font-bold text-text">Server Logs</h3>
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => setLogs([])}
-            className="p-1 rounded hover:bg-surface-hover text-text-muted transition-colors"
+            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
             title="Clear logs"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-4 h-4" />
           </button>
           {!autoScroll && (
             <button
@@ -69,33 +69,33 @@ export function LogViewer({ onClose }: LogViewerProps) {
                 setAutoScroll(true)
                 bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
               }}
-              className="p-1 rounded hover:bg-surface-hover text-text-muted transition-colors"
+              className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
               title="Scroll to bottom"
             >
-              <ArrowDown className="w-3.5 h-3.5" />
+              <ArrowDown className="w-4 h-4" />
             </button>
           )}
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-surface-hover text-text-muted transition-colors"
+            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto font-mono text-[11px] leading-relaxed"
+        className="flex-1 overflow-y-auto font-mono text-xs leading-relaxed"
       >
         {logs.length === 0 ? (
-          <div className="p-4 text-text-muted text-xs text-center">
+          <div className="p-6 text-text-muted text-sm text-center">
             No logs yet. Start the server to see output.
           </div>
         ) : (
-          <div className="p-2 space-y-0.5">
+          <div className="p-3 space-y-0.5">
             {logs.map((entry, i) => (
-              <div key={i} className="flex gap-2 hover:bg-surface-dim rounded px-1">
+              <div key={i} className="flex gap-2.5 hover:bg-surface-dim rounded-lg px-2 py-0.5">
                 <span className="text-text-muted shrink-0 select-none">
                   {formatTime(entry.timestamp)}
                 </span>

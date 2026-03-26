@@ -36,6 +36,12 @@ pub struct ChatRequest {
     pub seed: Option<i64>,
     pub grammar: Option<String>,
     pub system_prompt: Option<String>,
+    pub min_p: Option<f64>,
+    pub typical_p: Option<f64>,
+    pub mirostat: Option<i32>,
+    pub mirostat_tau: Option<f64>,
+    pub mirostat_eta: Option<f64>,
+    pub tfs_z: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]

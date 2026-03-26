@@ -15,9 +15,9 @@ pub async fn serve_spa(uri: Uri) -> Response {
         return Html(
             r#"<!DOCTYPE html>
 <html>
-<head><title>AI Studio - Dev Mode</title></head>
+<head><title>Llama Studio - Dev Mode</title></head>
 <body>
-<h1>AI Studio Backend Running</h1>
+<h1>Llama Studio Backend Running</h1>
 <p>Frontend is served by Vite dev server at <a href="http://localhost:5173">http://localhost:5173</a></p>
 </body>
 </html>"#,

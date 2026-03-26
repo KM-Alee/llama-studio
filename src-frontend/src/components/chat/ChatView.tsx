@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
-import { ArrowUp, Square, MessageCircle, SlidersHorizontal, FileText, Terminal } from 'lucide-react'
+import { ArrowUp, Square, MessageCircle, SlidersHorizontal, FileText, Terminal, RotateCcw, Gauge } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useChatStore } from '@/stores/chatStore'
@@ -34,6 +34,8 @@ export function ChatView() {
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
   const [inferenceParams, setInferenceParams] = useState<InferenceParams>({ ...DEFAULT_PARAMS })
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [streamStartTime, setStreamStartTime] = useState<number | null>(null)
+  const [streamTokenCount, setStreamTokenCount] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -86,6 +88,11 @@ export function ChatView() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
 
+  // Streaming speed calculation
+  const tokensPerSecond = streamStartTime && streamTokenCount > 0
+    ? (streamTokenCount / ((Date.now() - streamStartTime) / 1000)).toFixed(1)
+    : null
+
   const handleSend = async () => {
     const trimmed = input.trim()
     if (!trimmed || isStreaming) return
@@ -93,6 +100,8 @@ export function ChatView() {
     setInput('')
     setStreaming(true)
     clearStreamContent()
+    setStreamStartTime(Date.now())
+    setStreamTokenCount(0)
 
     try {
       // If no active conversation, create one
@@ -141,6 +150,8 @@ export function ChatView() {
       for await (const chunk of streamChat(chatMessages, chatOptions, abortRef.current.signal)) {
         fullContent += chunk
         appendStreamContent(chunk)
+        // Rough token counting for speed display (split on whitespace + punctuation boundaries)
+        setStreamTokenCount((prev) => prev + 1)
       }
 
       // Save assistant message to backend
@@ -170,7 +181,66 @@ export function ChatView() {
       abortRef.current = null
       setStreaming(false)
       clearStreamContent()
+      setStreamStartTime(null)
+      setStreamTokenCount(0)
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    }
+  }
+
+  const handleRegenerate = async () => {
+    if (isStreaming || messages.length < 2) return
+    // Remove the last assistant message and re-send
+    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
+    if (!lastAssistant) return
+    const newMessages = messages.filter((m) => m.id !== lastAssistant.id)
+    setMessages(newMessages)
+
+    // Re-build message history and stream
+    setStreaming(true)
+    clearStreamContent()
+    setStreamStartTime(Date.now())
+    setStreamTokenCount(0)
+
+    try {
+      const chatMessages = newMessages
+        .filter((m) => !m.isError)
+        .map((m) => ({ role: m.role, content: m.content }))
+
+      let fullContent = ''
+      const chatOptions = profile === 'advanced' ? {
+        ...inferenceParams,
+        system_prompt: systemPrompt || undefined,
+      } : undefined
+      abortRef.current = new AbortController()
+      for await (const chunk of streamChat(chatMessages, chatOptions, abortRef.current.signal)) {
+        fullContent += chunk
+        appendStreamContent(chunk)
+        setStreamTokenCount((prev) => prev + 1)
+      }
+
+      const convoId = activeConversationId
+      if (convoId) {
+        const assistantMsgResponse = await addMessage(convoId, {
+          role: 'assistant',
+          content: fullContent,
+        })
+        addLocalMessage({
+          id: assistantMsgResponse.id,
+          role: 'assistant',
+          content: fullContent,
+          createdAt: assistantMsgResponse.created_at,
+        })
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      toast.error(errorMsg)
+    } finally {
+      abortRef.current = null
+      setStreaming(false)
+      clearStreamContent()
+      setStreamStartTime(null)
+      setStreamTokenCount(0)
     }
   }
 
@@ -205,21 +275,21 @@ export function ChatView() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 px-4">
-              <div className="w-10 h-10 rounded-full bg-surface-dim border border-border flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-text-muted" />
+            <div className="flex flex-col items-center justify-center h-full gap-5 px-4">
+              <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-center">
+                <MessageCircle className="w-8 h-8 text-primary/60" />
               </div>
-              <div className="text-center max-w-sm">
-                <h2 className="text-base font-medium text-text mb-1">New conversation</h2>
-                <p className="text-sm text-text-muted">
+              <div className="text-center max-w-md">
+                <h2 className="text-lg font-bold text-text mb-2">Start a conversation</h2>
+                <p className="text-sm text-text-muted leading-relaxed">
                   {isServerReady
-                    ? 'Send a message to get started.'
-                    : 'Load a model from the Models page to begin.'}
+                    ? 'Type a message below to begin. Pick a style to set the tone.'
+                    : 'Load a model from the Models page to begin chatting.'}
                 </p>
               </div>
 
               {isServerReady && presetsData?.presets && (
-                <div className="flex flex-wrap gap-1.5 mt-2 max-w-md justify-center">
+                <div className="flex flex-wrap gap-2 mt-1 max-w-lg justify-center">
                   {presetsData.presets.slice(0, 4).map((preset: Preset) => (
                     <button
                       key={preset.id}
@@ -228,10 +298,10 @@ export function ChatView() {
                         inputRef.current?.focus()
                       }}
                       className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        "px-4 py-2 rounded-xl text-sm font-medium transition-colors",
                         selectedPresetId === preset.id
                           ? "bg-primary/10 text-primary border border-primary/30"
-                          : "bg-surface-dim text-text-secondary hover:bg-surface-hover hover:text-text"
+                          : "bg-surface-dim text-text-secondary hover:bg-surface-hover hover:text-text border border-border"
                       )}
                     >
                       {preset.name}
@@ -241,7 +311,7 @@ export function ChatView() {
               )}
             </div>
           ) : (
-            <div className="max-w-2xl mx-auto py-6 px-4 space-y-5">
+            <div className="max-w-3xl mx-auto py-6 px-6 space-y-5">
               {messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} />
               ))}
@@ -261,10 +331,18 @@ export function ChatView() {
           )}
         </div>
 
+        {/* Streaming speed indicator */}
+        {isStreaming && tokensPerSecond && (
+          <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-text-muted">
+            <Gauge className="w-3 h-3" />
+            <span>{tokensPerSecond} tok/s</span>
+          </div>
+        )}
+
         {/* Input Area */}
         <div className="bg-surface px-4 pb-4 pt-2">
-          <div className="max-w-2xl mx-auto">
-            <div className="relative flex items-end gap-2 bg-surface-dim border border-border rounded-xl p-2.5 focus-within:border-text-muted/40 transition-colors">
+          <div className="max-w-3xl mx-auto">
+            <div className="relative flex items-end gap-2 bg-surface-dim border border-border rounded-2xl p-3 focus-within:border-text-muted/40 transition-colors">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -277,43 +355,54 @@ export function ChatView() {
                 }
                 disabled={!isServerReady}
                 rows={1}
-                className="flex-1 bg-transparent resize-none outline-none text-text placeholder-text-muted text-sm max-h-[200px] min-h-[36px] py-1 px-1 disabled:opacity-40"
+                className="flex-1 bg-transparent resize-none outline-none text-text placeholder-text-muted text-sm leading-relaxed max-h-[200px] min-h-[36px] py-1 px-1 disabled:opacity-40"
               />
-              <button
-                onClick={isStreaming ? () => {
-                  abortRef.current?.abort()
-                  setStreaming(false)
-                  clearStreamContent()
-                } : handleSend}
-                disabled={!isServerReady || (!input.trim() && !isStreaming)}
-                className={cn(
-                  'p-1.5 rounded-lg transition-colors shrink-0',
-                  isStreaming
-                    ? 'bg-error text-white hover:bg-error/80'
-                    : 'bg-primary text-white hover:bg-primary-hover disabled:opacity-20 disabled:cursor-not-allowed'
+              <div className="flex items-center gap-1 shrink-0">
+                {messages.length >= 2 && !isStreaming && isServerReady && (
+                  <button
+                    onClick={handleRegenerate}
+                    className="p-2 rounded-xl text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
+                    title="Regenerate last response"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
                 )}
-              >
-                {isStreaming ? (
-                  <Square className="w-3.5 h-3.5" />
-                ) : (
-                  <ArrowUp className="w-3.5 h-3.5" />
-                )}
-              </button>
+                <button
+                  onClick={isStreaming ? () => {
+                    abortRef.current?.abort()
+                    setStreaming(false)
+                    clearStreamContent()
+                  } : handleSend}
+                  disabled={!isServerReady || (!input.trim() && !isStreaming)}
+                  className={cn(
+                    'p-2 rounded-xl transition-colors shrink-0',
+                    isStreaming
+                      ? 'bg-error text-white hover:bg-error/80'
+                      : 'bg-primary text-white hover:bg-primary-hover disabled:opacity-20 disabled:cursor-not-allowed'
+                  )}
+                >
+                  {isStreaming ? (
+                    <Square className="w-4 h-4" />
+                  ) : (
+                    <ArrowUp className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
-            <div className="flex items-center justify-between mt-1.5 px-1">
+            <div className="flex items-center justify-between mt-2 px-1">
               <PresetSelector
                 selectedPresetId={selectedPresetId}
                 onSelect={setSelectedPresetId}
               />
               {profile === 'advanced' && (
-                <div className="flex items-center gap-2 text-[11px] text-text-muted">
+                <div className="flex items-center gap-1.5 text-xs text-text-muted">
                   <span>{input.length}c / ~{estimatedTokens}t</span>
                   <div className="w-px h-3 bg-border" />
                   <button
                     onClick={() => setSidePanel(sidePanel === 'params' ? null : 'params')}
                     className={cn(
-                      'p-1 rounded hover:text-text transition-colors',
-                      sidePanel === 'params' && 'text-primary'
+                      'p-1.5 rounded-lg hover:text-text hover:bg-surface-hover transition-colors',
+                      sidePanel === 'params' && 'text-primary bg-primary/10'
                     )}
                     title="Parameters"
                   >
@@ -322,8 +411,8 @@ export function ChatView() {
                   <button
                     onClick={() => setSidePanel(sidePanel === 'system-prompt' ? null : 'system-prompt')}
                     className={cn(
-                      'p-1 rounded hover:text-text transition-colors',
-                      sidePanel === 'system-prompt' && 'text-primary'
+                      'p-1.5 rounded-lg hover:text-text hover:bg-surface-hover transition-colors',
+                      sidePanel === 'system-prompt' && 'text-primary bg-primary/10'
                     )}
                     title="System Prompt"
                   >
@@ -332,8 +421,8 @@ export function ChatView() {
                   <button
                     onClick={() => setSidePanel(sidePanel === 'logs' ? null : 'logs')}
                     className={cn(
-                      'p-1 rounded hover:text-text transition-colors',
-                      sidePanel === 'logs' && 'text-primary'
+                      'p-1.5 rounded-lg hover:text-text hover:bg-surface-hover transition-colors',
+                      sidePanel === 'logs' && 'text-primary bg-primary/10'
                     )}
                     title="Logs"
                   >

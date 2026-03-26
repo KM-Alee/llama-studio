@@ -17,6 +17,14 @@ pub struct AppConfig {
     pub context_size: u32,
     pub threads: u32,
     pub flash_attention: bool,
+    pub batch_size: Option<u32>,
+    pub ubatch_size: Option<u32>,
+    pub rope_scaling: Option<String>,
+    pub rope_freq_base: Option<f64>,
+    pub rope_freq_scale: Option<f64>,
+    pub mmap: Option<bool>,
+    pub mlock: Option<bool>,
+    pub cont_batching: Option<bool>,
 }
 
 impl Default for AppConfig {
@@ -34,6 +42,14 @@ impl Default for AppConfig {
             context_size: 4096,
             threads: 0, // 0 = auto-detect
             flash_attention: true,
+            batch_size: None,
+            ubatch_size: None,
+            rope_scaling: None,
+            rope_freq_base: None,
+            rope_freq_scale: None,
+            mmap: None,
+            mlock: None,
+            cont_batching: Some(true),
         }
     }
 }

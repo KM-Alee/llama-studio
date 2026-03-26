@@ -77,6 +77,12 @@ export interface HuggingFaceModel {
   downloads: number
   likes: number
   tags: string[]
+  last_modified: string | null
+}
+
+export interface HuggingFaceFile {
+  filename: string
+  size: number
 }
 
 export interface AppConfig {
@@ -87,6 +93,14 @@ export interface AppConfig {
   gpu_layers: number
   threads: number
   flash_attention: boolean
+  batch_size: number | null
+  ubatch_size: number | null
+  rope_scaling: string | null
+  rope_freq_base: number | null
+  rope_freq_scale: number | null
+  mmap: boolean | null
+  mlock: boolean | null
+  cont_batching: boolean | null
 }
 
 export interface HardwareInfo {
@@ -122,6 +136,8 @@ export const cancelDownload = (id: string) =>
 // HuggingFace
 export const searchHuggingFace = (q: string, limit = 20) =>
   request<{ models: HuggingFaceModel[] }>(`/huggingface/search?q=${encodeURIComponent(q)}&limit=${limit}`)
+export const getHuggingFaceFiles = (repoId: string) =>
+  request<{ repo_id: string; files: HuggingFaceFile[] }>(`/huggingface/model-files/${repoId}`)
 
 // Server
 export const startServer = (modelId: string, extraArgs: string[] = []) =>

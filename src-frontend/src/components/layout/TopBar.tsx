@@ -42,24 +42,33 @@ export function TopBar() {
     error: 'bg-error',
   }[serverStatus]
 
+  const statusLabel = {
+    stopped: 'Stopped',
+    starting: 'Starting…',
+    running: 'Running',
+    stopping: 'Stopping…',
+    error: 'Error',
+  }[serverStatus]
+
   return (
-    <header className="h-12 border-b border-border flex items-center justify-between px-3 bg-surface shrink-0">
-      <div className="flex items-center gap-2">
+    <header className="h-14 border-b border-border flex items-center justify-between px-4 bg-surface shrink-0">
+      <div className="flex items-center gap-3">
         {!sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="p-1.5 rounded-md hover:bg-surface-hover text-text-muted transition-colors"
+            className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+            title="Open sidebar"
           >
             <PanelLeft className="w-4 h-4" />
           </button>
         )}
 
-        <div className="flex items-center gap-1.5 text-xs text-text-muted">
-          <div className={cn('w-1.5 h-1.5 rounded-full', statusColor)} />
-          <span className="capitalize">{serverStatus}</span>
+        <div className="flex items-center gap-2 text-sm text-text-muted">
+          <div className={cn('w-2 h-2 rounded-full', statusColor)} />
+          <span>{statusLabel}</span>
         </div>
 
-        <div className="w-px h-4 bg-border mx-1" />
+        <div className="w-px h-5 bg-border mx-0.5" />
 
         <ModelSelector />
       </div>
@@ -71,13 +80,13 @@ export function TopBar() {
             <div className="relative">
               <button
                 onClick={() => setShowExport(!showExport)}
-                className="p-1.5 rounded-md hover:bg-surface-hover text-text-muted transition-colors"
+                className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
                 title="Export"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-4 h-4" />
               </button>
               {showExport && (
-                <div className="absolute top-full right-0 mt-1 w-44 bg-surface border border-border rounded-lg shadow-lg z-50 py-1">
+                <div className="absolute top-full right-0 mt-1 w-48 bg-surface border border-border rounded-xl shadow-lg z-50 py-1 overflow-hidden">
                   <button
                     onClick={async () => {
                       try {
@@ -93,7 +102,7 @@ export function TopBar() {
                         toast.success('Exported as Markdown')
                       } catch { toast.error('Export failed') }
                     }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
                   >
                     Markdown
                   </button>
@@ -112,7 +121,7 @@ export function TopBar() {
                         toast.success('Exported as JSON')
                       } catch { toast.error('Export failed') }
                     }}
-                    className="w-full text-left px-3 py-1.5 text-xs text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
+                    className="w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
                   >
                     JSON
                   </button>
@@ -127,35 +136,35 @@ export function TopBar() {
                   navigate(`/chat/${forked.id}`)
                 } catch { toast.error('Fork failed') }
               }}
-              className="p-1.5 rounded-md hover:bg-surface-hover text-text-muted transition-colors"
-              title="Fork"
+              className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+              title="Fork conversation"
             >
-              <GitFork className="w-3.5 h-3.5" />
+              <GitFork className="w-4 h-4" />
             </button>
-            <div className="w-px h-4 bg-border mx-0.5" />
+            <div className="w-px h-5 bg-border mx-0.5" />
           </>
         )}
 
         {/* Command Palette */}
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="p-1.5 rounded-md hover:bg-surface-hover text-text-muted transition-colors"
+          className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
           title="Search (Ctrl+K)"
         >
-          <Search className="w-3.5 h-3.5" />
+          <Search className="w-4 h-4" />
         </button>
 
         {/* Profile Toggle */}
         <button
           onClick={toggleProfile}
           className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
             profile === 'advanced'
               ? 'bg-primary/10 text-primary'
               : 'text-text-muted hover:bg-surface-hover'
           )}
         >
-          <Zap className="w-3 h-3" />
+          <Zap className="w-3.5 h-3.5" />
           {profile === 'normal' ? 'Normal' : 'Advanced'}
         </button>
       </div>

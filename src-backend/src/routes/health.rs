@@ -5,6 +5,6 @@ pub async fn health_check() -> Json<Value> {
     Json(json!({
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
-        "name": "AI Studio"
+        "name": "Llama Studio"
     }))
 }

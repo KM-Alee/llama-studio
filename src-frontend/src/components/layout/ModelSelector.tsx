@@ -58,27 +58,27 @@ export function ModelSelector() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-dim border border-border text-sm hover:bg-surface-hover transition-colors max-w-[220px]"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-dim border border-border text-sm hover:bg-surface-hover transition-colors max-w-[240px]"
       >
-        <HardDrive className="w-3.5 h-3.5 text-text-muted shrink-0" />
+        <HardDrive className="w-4 h-4 text-text-muted shrink-0" />
         <span className="truncate text-text-secondary">
           {activeModel ? activeModel.name : 'No model'}
         </span>
         {isLoading ? (
-          <Loader2 className="w-3.5 h-3.5 text-text-muted animate-spin shrink-0" />
+          <Loader2 className="w-4 h-4 text-text-muted animate-spin shrink-0" />
         ) : (
-          <ChevronDown className="w-3.5 h-3.5 text-text-muted shrink-0" />
+          <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
         )}
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 w-72 bg-surface border border-border rounded-lg shadow-md z-50 overflow-hidden">
+        <div className="absolute top-full left-0 mt-1.5 w-80 bg-surface border border-border rounded-xl shadow-lg z-50 overflow-hidden">
           {modelList.length === 0 ? (
-            <div className="p-4 text-sm text-text-muted text-center">
+            <div className="p-5 text-sm text-text-muted text-center">
               No models available. Scan for models on the Models page.
             </div>
           ) : (
-            <div className="max-h-64 overflow-y-auto py-1">
+            <div className="max-h-72 overflow-y-auto py-1">
               {modelList.map((model: Model) => {
                 const isActive = model.id === activeModelId
                 return (
@@ -104,7 +104,7 @@ export function ModelSelector() {
                     }}
                     disabled={isLoading}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors',
+                      'w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors',
                       isActive
                         ? 'bg-primary/10 text-primary'
                         : 'hover:bg-surface-hover text-text-secondary'
@@ -119,7 +119,7 @@ export function ModelSelector() {
                       </div>
                     </div>
                     {isActive && (
-                      <span className="text-xs font-medium text-primary">Active</span>
+                      <span className="text-xs font-semibold text-primary">Active</span>
                     )}
                   </button>
                 )

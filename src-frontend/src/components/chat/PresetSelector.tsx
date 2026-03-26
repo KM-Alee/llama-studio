@@ -36,15 +36,15 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-surface-hover border border-border transition-colors"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-text-secondary hover:bg-surface-hover border border-border transition-colors"
       >
-        <Sliders className="w-3.5 h-3.5" />
+        <Sliders className="w-4 h-4" />
         <span>{selectedPreset ? selectedPreset.name : 'Default'}</span>
-        <ChevronDown className="w-3 h-3" />
+        <ChevronDown className="w-3.5 h-3.5" />
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 mb-1 w-56 bg-surface border border-border rounded-lg shadow-md z-50 overflow-hidden">
+        <div className="absolute bottom-full left-0 mb-1.5 w-60 bg-surface border border-border rounded-xl shadow-lg z-50 overflow-hidden">
           <div className="py-1">
             <button
               onClick={() => {
@@ -52,7 +52,7 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
                 setOpen(false)
               }}
               className={cn(
-                'w-full px-3 py-2 text-left text-sm transition-colors',
+                'w-full px-4 py-2.5 text-left text-sm transition-colors',
                 !selectedPresetId
                   ? 'bg-primary/10 text-primary'
                   : 'hover:bg-surface-hover text-text-secondary'
@@ -69,7 +69,7 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
                   setOpen(false)
                 }}
                 className={cn(
-                  'w-full px-3 py-2 text-left text-sm transition-colors',
+                  'w-full px-4 py-2.5 text-left text-sm transition-colors',
                   selectedPresetId === preset.id
                     ? 'bg-primary/10 text-primary'
                     : 'hover:bg-surface-hover text-text-secondary'

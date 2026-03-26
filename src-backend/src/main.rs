@@ -68,7 +68,7 @@ async fn main() -> Result<()> {
 
     // Bind to localhost only (security: not exposed to network)
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    tracing::info!("AI Studio starting on http://{}", addr);
+    tracing::info!("Llama Studio starting on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
