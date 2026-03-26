@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Trash2, ArrowDown } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getServerLogs } from '@/lib/api'
-import { useWebSocket } from '@/lib/useWebSocket'
 
 interface LogViewerProps {
   onClose: () => void

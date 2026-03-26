@@ -11,6 +11,8 @@ import {
   getConversation,
   createConversation,
   addMessage,
+  type Message,
+  type Preset,
 } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
@@ -59,7 +61,7 @@ export function ChatView() {
     if (conversationId && conversationId !== activeConversationId) {
       setActiveConversation(conversationId)
       getConversation(conversationId).then((data) => {
-        const msgs = data.messages.map((m: any) => ({
+        const msgs = data.messages.map((m: Message) => ({
           id: m.id,
           role: m.role as 'user' | 'assistant' | 'system',
           content: m.content,
@@ -122,10 +124,12 @@ export function ChatView() {
       addLocalMessage(userMsg)
 
       // Build the full message history to send to llama.cpp
-      const chatMessages = [...messages, userMsg].map((m) => ({
-        role: m.role,
-        content: m.content,
-      }))
+      const chatMessages = [...messages, userMsg]
+        .filter((m) => !m.isError)
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
 
       // Stream the response, passing inference params if in advanced mode
       let fullContent = ''
@@ -133,7 +137,8 @@ export function ChatView() {
         ...inferenceParams,
         system_prompt: systemPrompt || undefined,
       } : undefined
-      for await (const chunk of streamChat(chatMessages, chatOptions)) {
+      abortRef.current = new AbortController()
+      for await (const chunk of streamChat(chatMessages, chatOptions, abortRef.current.signal)) {
         fullContent += chunk
         appendStreamContent(chunk)
       }
@@ -152,14 +157,17 @@ export function ChatView() {
       })
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      if (err instanceof DOMException && err.name === 'AbortError') return
       toast.error(errorMsg)
       addLocalMessage({
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Error: ${errorMsg}`,
+        content: `⚠️ Error: ${errorMsg}`,
         createdAt: new Date().toISOString(),
+        isError: true,
       })
     } finally {
+      abortRef.current = null
       setStreaming(false)
       clearStreamContent()
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
@@ -212,10 +220,19 @@ export function ChatView() {
 
               {isServerReady && presetsData?.presets && (
                 <div className="flex flex-wrap gap-1.5 mt-2 max-w-md justify-center">
-                  {presetsData.presets.slice(0, 4).map((preset: any) => (
+                  {presetsData.presets.slice(0, 4).map((preset: Preset) => (
                     <button
                       key={preset.id}
-                      className="px-3 py-1.5 rounded-lg bg-surface-dim text-xs text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
+                      onClick={() => {
+                        setSelectedPresetId(preset.id)
+                        inputRef.current?.focus()
+                      }}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        selectedPresetId === preset.id
+                          ? "bg-primary/10 text-primary border border-primary/30"
+                          : "bg-surface-dim text-text-secondary hover:bg-surface-hover hover:text-text"
+                      )}
                     >
                       {preset.name}
                     </button>
@@ -228,12 +245,12 @@ export function ChatView() {
               {messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} />
               ))}
-              {isStreaming && streamingContent && (
+              {isStreaming && (
                 <MessageBubble
                   message={{
                     id: 'streaming',
                     role: 'assistant',
-                    content: streamingContent,
+                    content: streamingContent || '...',
                     createdAt: new Date().toISOString(),
                   }}
                   isStreaming
@@ -263,7 +280,11 @@ export function ChatView() {
                 className="flex-1 bg-transparent resize-none outline-none text-text placeholder-text-muted text-sm max-h-[200px] min-h-[36px] py-1 px-1 disabled:opacity-40"
               />
               <button
-                onClick={isStreaming ? () => setStreaming(false) : handleSend}
+                onClick={isStreaming ? () => {
+                  abortRef.current?.abort()
+                  setStreaming(false)
+                  clearStreamContent()
+                } : handleSend}
                 disabled={!isServerReady || (!input.trim() && !isStreaming)}
                 className={cn(
                   'p-1.5 rounded-lg transition-colors shrink-0',

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Save, Cpu, HardDrive } from 'lucide-react'
 import { getConfig, updateConfig, detectHardware, getServerFlags, setServerFlags } from '@/lib/api'
-import { useAppStore } from '@/stores/appStore'
+import { useAppStore, type Theme } from '@/stores/appStore'
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { formatBytes } from '@/lib/utils'
@@ -12,7 +12,7 @@ export function SettingsPage() {
   const setTheme = useAppStore((s) => s.setTheme)
   const queryClient = useQueryClient()
 
-  const { data: config } = useQuery({
+  const { data: config, isLoading: configLoading } = useQuery({
     queryKey: ['config'],
     queryFn: getConfig,
   })
@@ -71,6 +71,12 @@ export function SettingsPage() {
 
   return (
     <div className="max-w-xl mx-auto p-6">
+      {configLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-sm text-text-muted">Loading settings...</div>
+        </div>
+      ) : (
+      <>
       <div className="flex items-center justify-between mb-5">
         <h1 className="text-lg font-semibold text-text">Settings</h1>
         <button
@@ -93,7 +99,7 @@ export function SettingsPage() {
             <span className="text-xs text-text-secondary mb-1 block">Theme</span>
             <select
               value={theme}
-              onChange={(e) => setTheme(e.target.value as any)}
+              onChange={(e) => setTheme(e.target.value as Theme)}
               className="w-full px-3 py-2 rounded-lg bg-surface-dim border border-border text-text text-sm focus:border-primary outline-none"
             >
               <option value="system">System</option>
@@ -229,6 +235,7 @@ export function SettingsPage() {
           </section>
         )}
       </div>
+    </>)}
     </div>
   )
 }

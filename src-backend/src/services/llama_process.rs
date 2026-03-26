@@ -120,24 +120,32 @@ impl LlamaProcessManager {
         }
     }
 
+    /// Validate a CLI flag to prevent injection of dangerous arguments.
+    fn validate_flag(flag: &str) -> bool {
+        let dangerous = [
+            "--api-key", "--api-key-file", "--log-file", "--log-prefix",
+            "-o", "--output", "--ssl-key-file", "--ssl-cert-file",
+        ];
+        let lower = flag.to_lowercase();
+        !dangerous.iter().any(|d| lower.starts_with(d))
+    }
+
     /// Resolve model_id to a filesystem path by looking it up in the database.
-    /// Falls back to using model_id as a literal path if not found in DB.
-    async fn resolve_model_path(&self, model_id: &str) -> String {
-        match self.db.get_model(model_id).await {
-            Ok(model) => model.path,
-            Err(_) => model_id.to_string(),
-        }
+    async fn resolve_model_path(&self, model_id: &str) -> AppResult<String> {
+        self.db.get_model(model_id).await
+            .map(|model| model.path)
+            .map_err(|_| AppError::NotFound(format!("Model not found: {}", model_id)))
     }
 
     pub async fn start(&mut self, model_id: &str, extra_args: &[String]) -> AppResult<()> {
-        if self.status == ServerStatus::Running {
+        if matches!(self.status, ServerStatus::Running | ServerStatus::Starting) {
             return Err(AppError::ServerAlreadyRunning);
         }
 
         self.status = ServerStatus::Starting;
         self.logs.lock().unwrap().clear();
 
-        let model_path = self.resolve_model_path(model_id).await;
+        let model_path = self.resolve_model_path(model_id).await?;
         let config = self.config.get_all().await
             .map_err(AppError::Internal)?;
 
@@ -165,11 +173,19 @@ impl LlamaProcessManager {
 
         // Apply custom CLI flags stored for advanced mode
         for flag in &self.custom_flags {
-            cmd.arg(flag);
+            if Self::validate_flag(flag) {
+                cmd.arg(flag);
+            } else {
+                tracing::warn!(flag = %flag, "Blocked dangerous CLI flag");
+            }
         }
 
         for arg in extra_args {
-            cmd.arg(arg);
+            if Self::validate_flag(arg) {
+                cmd.arg(arg);
+            } else {
+                tracing::warn!(arg = %arg, "Blocked dangerous CLI argument");
+            }
         }
 
         self.push_log(format!("Starting llama.cpp: {} -m {}", llama_path, model_path));

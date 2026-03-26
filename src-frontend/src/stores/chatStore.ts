@@ -7,6 +7,7 @@ export interface ChatMessage {
   createdAt: string
   tokensUsed?: number
   generationTimeMs?: number
+  isError?: boolean
 }
 
 interface ChatState {

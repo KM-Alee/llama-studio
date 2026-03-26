@@ -38,6 +38,7 @@ anyhow = "1"
 thiserror = "2"
 dirs = "6"
 urlencoding = "2"
+url = "2"
 
 # Embed frontend assets in release binary
 rust-embed = { version = "8", features = ["mime-guess"] }

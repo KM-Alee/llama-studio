@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { X, RotateCcw } from 'lucide-react'
 
 export interface InferenceParams {

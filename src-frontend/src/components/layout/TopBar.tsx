@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { PanelLeft, Download, GitFork, Search, Zap } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
-import { useServerStore } from '@/stores/serverStore'
+import { useServerStore, type ServerStatus } from '@/stores/serverStore'
 import { useChatStore } from '@/stores/chatStore'
 import { getServerStatus, exportConversationMarkdown, exportConversationJson, forkConversation } from '@/lib/api'
 import { ModelSelector } from './ModelSelector'
@@ -30,7 +30,7 @@ export function TopBar() {
 
   useEffect(() => {
     if (data?.status) {
-      setStatus(data.status as any)
+      setStatus(data.status as ServerStatus)
     }
   }, [data, setStatus])
 

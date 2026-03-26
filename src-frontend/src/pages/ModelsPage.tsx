@@ -2,12 +2,13 @@ import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Box, Scan, Trash2, Play, HardDrive, LayoutGrid, List, Search,
-  Download, X, FolderOpen, Info, Cpu, MemoryStick, FileDown, ExternalLink,
+  Download, X, FolderOpen, FileDown, ExternalLink,
   Square, AlertCircle
 } from 'lucide-react'
 import {
   getModels, scanModels, deleteModel, startServer, stopServer,
-  importModel, getDownloads, cancelDownload, searchHuggingFace
+  importModel, getDownloads, cancelDownload, searchHuggingFace,
+  type Model, type DownloadInfo, type HuggingFaceModel,
 } from '@/lib/api'
 import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
@@ -22,12 +23,12 @@ interface ModelDetail {
   name: string
   path: string
   size_bytes: number
-  quantization?: string
-  architecture?: string
-  parameters?: string
-  context_length?: number
+  quantization: string | null
+  architecture: string | null
+  parameters: string | null
+  context_length: number | null
   added_at: string
-  last_used?: string
+  last_used: string | null
 }
 
 function estimateVram(sizeBytes: number, quant?: string): string {
@@ -107,7 +108,7 @@ export function ModelsPage() {
 
   const models = data?.models ?? []
   const downloads = downloadsData?.downloads ?? []
-  const activeDownloads = downloads.filter((d: any) => d.status === 'downloading' || d.status === 'queued')
+  const activeDownloads = downloads.filter((d: DownloadInfo) => d.status === 'downloading' || d.status === 'queued')
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -248,7 +249,7 @@ export function ModelsPage() {
                 </div>
               ) : viewMode === 'grid' ? (
                 <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
-                  {models.map((model: any) => (
+                  {models.map((model: Model) => (
                     <ModelCard
                       key={model.id}
                       model={model}
@@ -268,7 +269,7 @@ export function ModelsPage() {
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {models.map((model: any) => (
+                  {models.map((model: Model) => (
                     <ModelRow
                       key={model.id}
                       model={model}
@@ -308,7 +309,7 @@ export function ModelsPage() {
               </div>
               {hfResults?.models && hfResults.models.length > 0 ? (
                 <div className="space-y-2">
-                  {hfResults.models.map((model: any) => (
+                  {hfResults.models.map((model: HuggingFaceModel) => (
                     <div
                       key={model.id}
                       className="flex items-center gap-4 p-4 rounded-xl border border-border bg-surface-dim hover:bg-surface-hover transition-colors"
@@ -358,7 +359,7 @@ export function ModelsPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {downloads.map((dl: any) => (
+                  {downloads.map((dl: DownloadInfo) => (
                     <DownloadRow key={dl.id} download={dl} />
                   ))}
                 </div>
@@ -383,7 +384,7 @@ export function ModelsPage() {
 }
 
 function ModelCard({ model, isActive, serverStatus, onSelect, onLoad, onDelete }: {
-  model: any; isActive: boolean; serverStatus: string
+  model: ModelDetail; isActive: boolean; serverStatus: string
   onSelect: () => void; onLoad: () => void; onDelete: () => void
 }) {
   return (
@@ -433,7 +434,7 @@ function ModelCard({ model, isActive, serverStatus, onSelect, onLoad, onDelete }
 }
 
 function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }: {
-  model: any; isActive: boolean; serverStatus: string
+  model: ModelDetail; isActive: boolean; serverStatus: string
   onSelect: () => void; onLoad: () => void; onDelete: () => void
 }) {
   return (
@@ -535,7 +536,7 @@ function DetailField({ label, value }: { label: string; value: string }) {
   )
 }
 
-function DownloadRow({ download }: { download: any }) {
+function DownloadRow({ download }: { download: DownloadInfo }) {
   const progress = download.total_bytes > 0
     ? Math.round((download.downloaded_bytes / download.total_bytes) * 100)
     : 0

@@ -4,7 +4,8 @@ use axum::{
     routing::get,
 };
 use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
+use axum::http::HeaderValue;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -45,9 +46,23 @@ async fn main() -> Result<()> {
         .layer(TraceLayer::new_for_http())
         .layer(
             CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods(Any)
-                .allow_headers(Any),
+                .allow_origin([
+                    "http://localhost:5173".parse::<HeaderValue>().unwrap(),
+                    "http://127.0.0.1:5173".parse::<HeaderValue>().unwrap(),
+                    "http://localhost:3000".parse::<HeaderValue>().unwrap(),
+                    "http://127.0.0.1:3000".parse::<HeaderValue>().unwrap(),
+                ])
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::PUT,
+                    axum::http::Method::DELETE,
+                    axum::http::Method::OPTIONS,
+                ])
+                .allow_headers([
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::header::ACCEPT,
+                ]),
         )
         .with_state(state);
 

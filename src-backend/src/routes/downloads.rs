@@ -40,6 +40,29 @@ async fn start_download(
         return Err(AppError::BadRequest("Filename must end with .gguf".into()));
     }
 
+    // Validate URL
+    let url_parsed = url::Url::parse(&body.url)
+        .map_err(|_| AppError::BadRequest("Invalid URL".into()))?;
+
+    match url_parsed.scheme() {
+        "https" => {}
+        "http" => {
+            let host = url_parsed.host_str().unwrap_or("");
+            if !host.ends_with("huggingface.co") {
+                return Err(AppError::BadRequest("Only HTTPS URLs are allowed (except huggingface.co)".into()));
+            }
+        }
+        _ => return Err(AppError::BadRequest("Only HTTP(S) URLs are allowed".into())),
+    }
+
+    // Block internal/private network addresses
+    if let Some(host) = url_parsed.host_str() {
+        let blocked = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "169.254.169.254"];
+        if blocked.contains(&host) || host.starts_with("10.") || host.starts_with("192.168.") || host.starts_with("172.") {
+            return Err(AppError::BadRequest("Internal network addresses are not allowed".into()));
+        }
+    }
+
     let id = state.downloads.start_download(body.url, body.filename).await
         .map_err(AppError::Internal)?;
 

@@ -12,8 +12,8 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { useChatStore } from '@/stores/chatStore'
-import { getConversations, deleteConversation } from '@/lib/api'
-import { formatDate, cn } from '@/lib/utils'
+import { getConversations, deleteConversation, type Conversation } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 export function Sidebar() {
@@ -32,13 +32,14 @@ export function Sidebar() {
 
   const allConversations = data?.conversations ?? []
   const conversations = searchQuery
-    ? allConversations.filter((c: any) =>
+    ? allConversations.filter((c: Conversation) =>
         c.title.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : allConversations
 
   const handleDelete = async (e: React.MouseEvent, convoId: string) => {
     e.stopPropagation()
+    if (!window.confirm('Delete this conversation? This cannot be undone.')) return
     try {
       await deleteConversation(convoId)
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
@@ -110,7 +111,7 @@ export function Sidebar() {
           </div>
         ) : (
           <div className="space-y-px">
-            {conversations.map((convo: any) => (
+            {conversations.map((convo: Conversation) => (
               <div
                 key={convo.id}
                 className={cn(

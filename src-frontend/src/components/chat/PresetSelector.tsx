@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Sliders, ChevronDown } from 'lucide-react'
-import { getPresets } from '@/lib/api'
+import { getPresets, type Preset } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -19,7 +19,7 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
   })
 
   const presets = data?.presets ?? []
-  const selectedPreset = presets.find((p: any) => p.id === selectedPresetId)
+  const selectedPreset = presets.find((p: Preset) => p.id === selectedPresetId)
 
   // Close on outside click
   useEffect(() => {
@@ -61,7 +61,7 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
               <div className="font-medium">Default</div>
               <p className="text-xs text-text-muted mt-0.5">Standard settings</p>
             </button>
-            {presets.map((preset: any) => (
+            {presets.map((preset: Preset) => (
               <button
                 key={preset.id}
                 onClick={() => {
