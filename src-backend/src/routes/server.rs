@@ -1,0 +1,46 @@
+use axum::{
+    Router,
+    extract::State,
+    routing::{get, post},
+    Json,
+};
+use serde::Deserialize;
+use serde_json::{Value, json};
+
+use crate::error::AppResult;
+use crate::state::AppState;
+
+pub fn router() -> Router<AppState> {
+    Router::new()
+        .route("/start", post(start_server))
+        .route("/stop", post(stop_server))
+        .route("/status", get(server_status))
+}
+
+#[derive(Deserialize)]
+pub struct StartRequest {
+    pub model_id: String,
+    #[serde(default)]
+    pub extra_args: Vec<String>,
+}
+
+async fn start_server(
+    State(state): State<AppState>,
+    Json(req): Json<StartRequest>,
+) -> AppResult<Json<Value>> {
+    let mut llama = state.llama.write().await;
+    llama.start(&req.model_id, &req.extra_args).await?;
+    Ok(Json(json!({ "status": "starting" })))
+}
+
+async fn stop_server(State(state): State<AppState>) -> AppResult<Json<Value>> {
+    let mut llama = state.llama.write().await;
+    llama.stop().await?;
+    Ok(Json(json!({ "status": "stopped" })))
+}
+
+async fn server_status(State(state): State<AppState>) -> AppResult<Json<Value>> {
+    let llama = state.llama.read().await;
+    let status = llama.status();
+    Ok(Json(json!({ "status": status })))
+}
