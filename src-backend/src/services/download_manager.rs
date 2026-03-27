@@ -51,6 +51,7 @@ impl DownloadManager {
     }
 
     /// Subscribe to download progress events.
+    #[allow(dead_code)]
     pub fn subscribe(&self) -> broadcast::Receiver<DownloadProgress> {
         self.progress_tx.subscribe()
     }
@@ -119,6 +120,7 @@ impl DownloadManager {
     }
 
     /// Remove a completed or failed download from the list.
+    #[allow(dead_code)]
     pub async fn remove(&self, id: &str) {
         let mut downloads = self.downloads.lock().await;
         downloads.remove(id);

@@ -15,7 +15,6 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 
 // Re-use the application's modules
-use ai_studio_backend::error::AppResult;
 use ai_studio_backend::routes;
 use ai_studio_backend::state::AppState;
 
@@ -264,23 +263,17 @@ async fn config_get_returns_defaults() {
 // === Start server with non-existent model fails gracefully ===
 
 #[tokio::test]
-async fn start_server_with_missing_model_returns_starting() {
+async fn start_server_with_missing_model_returns_not_found() {
     let app = build_test_app().await;
 
-    // Starting with a non-existent model path — the process will fail to spawn
-    // but the API should return "starting" status since spawn is attempted async
-    let (status, body) = post_json(
+    let (status, _body) = post_json(
         &app,
         "/api/v1/server/start",
         json!({ "model_id": "/nonexistent/model.gguf" }),
     )
     .await;
 
-    // Either starting (spawn succeeded but process will die) or error (spawn failed)
-    assert!(
-        status == StatusCode::OK || status == StatusCode::INTERNAL_SERVER_ERROR,
-        "Unexpected status: {status}"
-    );
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 // === Phase 4: Model Import ===

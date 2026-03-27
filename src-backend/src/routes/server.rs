@@ -6,7 +6,7 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::services::llama_process;
 use crate::state::AppState;
 

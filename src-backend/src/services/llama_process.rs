@@ -309,6 +309,7 @@ impl LlamaProcessManager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn restart(&mut self, model_id: &str, extra_args: &[String]) -> AppResult<()> {
         self.stop().await?;
         self.start(model_id, extra_args).await

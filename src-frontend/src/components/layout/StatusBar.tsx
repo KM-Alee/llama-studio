@@ -16,7 +16,7 @@ export function StatusBar() {
       <div className="flex items-center gap-3">
         <span>{activeModel ? activeModel.name : 'No model loaded'}</span>
         {activeModel && (
-          <span className="text-text-muted/60">{formatBytes(activeModel.sizeBytes)}</span>
+          <span className="text-text-muted/60">{formatBytes(activeModel.size_bytes)}</span>
         )}
         {serverStatus === 'running' && (
           <span className="text-success font-medium">● Connected</span>

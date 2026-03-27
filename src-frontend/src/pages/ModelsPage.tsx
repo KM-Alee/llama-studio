@@ -11,7 +11,6 @@ import {
   importModel, getDownloads, cancelDownload, searchHuggingFace,
   getHuggingFaceFiles, getModelAnalytics, getModelInspection, startDownload,
   type Model, type DownloadInfo, type HuggingFaceModel, type HuggingFaceFile,
-  type ModelAnalytics, type ModelInspection,
 } from '@/lib/api'
 import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
@@ -35,7 +34,7 @@ interface ModelDetail {
   last_used: string | null
 }
 
-function estimateVram(sizeBytes: number, quant?: string): string {
+function estimateVram(sizeBytes: number, quant?: string | null): string {
   const base = sizeBytes * 1.2
   if (quant?.startsWith('Q4')) return `~${formatBytes(base)}`
   if (quant?.startsWith('Q5')) return `~${formatBytes(base)}`
@@ -776,8 +775,9 @@ function DetailField({ label, value }: { label: string; value: string }) {
 }
 
 function DownloadRow({ download }: { download: DownloadInfo }) {
-  const progress = download.total_bytes > 0
-    ? Math.round((download.downloaded_bytes / download.total_bytes) * 100)
+  const totalBytes = download.total_bytes ?? 0
+  const progress = totalBytes > 0
+    ? Math.round((download.downloaded_bytes / totalBytes) * 100)
     : 0
 
   return (
@@ -793,7 +793,7 @@ function DownloadRow({ download }: { download: DownloadInfo }) {
           {download.status === 'downloading' && (
             <>
               <span className="font-semibold text-primary">{progress}%</span>
-              <span>{formatBytes(download.downloaded_bytes)} / {formatBytes(download.total_bytes)}</span>
+              <span>{formatBytes(download.downloaded_bytes)} / {formatBytes(totalBytes)}</span>
             </>
           )}
           {download.status === 'complete' && <span className="text-success font-medium">Complete</span>}

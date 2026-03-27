@@ -1,17 +1,5 @@
 import { create } from 'zustand'
-
-export interface Model {
-  id: string
-  name: string
-  path: string
-  sizeBytes: number
-  quantization: string | null
-  architecture: string | null
-  parameters: string | null
-  contextLength: number | null
-  addedAt: string
-  lastUsed: string | null
-}
+import type { Model } from '@/lib/api'
 
 interface ModelState {
   models: Model[]

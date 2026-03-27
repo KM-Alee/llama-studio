@@ -6,7 +6,6 @@ use axum::{
 };
 use futures::stream::Stream;
 use serde::Deserialize;
-use serde_json::Value;
 use std::convert::Infallible;
 
 use crate::error::AppResult;
@@ -20,6 +19,7 @@ pub fn router() -> Router<AppState> {
 #[derive(Debug, Deserialize)]
 pub struct ChatRequest {
     pub messages: Vec<ChatMessage>,
+    #[allow(dead_code)]
     #[serde(default = "default_stream")]
     pub stream: bool,
     // Inference parameters (all optional — llama.cpp uses its defaults if omitted)

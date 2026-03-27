@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { ChevronDown, HardDrive, Loader2 } from 'lucide-react'
-import { getModels, startServer, stopServer, type Model } from '@/lib/api'
+import { getModels, startServer, stopServer } from '@/lib/api'
 import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
 import { formatBytes, cn } from '@/lib/utils'
@@ -79,7 +79,7 @@ export function ModelSelector() {
             </div>
           ) : (
             <div className="max-h-72 overflow-y-auto py-1">
-              {modelList.map((model: Model) => {
+              {modelList.map((model) => {
                 const isActive = model.id === activeModelId
                 return (
                   <button
