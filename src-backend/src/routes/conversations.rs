@@ -8,6 +8,7 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::error::{AppError, AppResult};
+use crate::services::session_manager::MessageAttachment;
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
@@ -33,6 +34,7 @@ pub struct CreateConversation {
 pub struct AddMessage {
     pub role: String,
     pub content: String,
+    pub attachments: Option<Vec<MessageAttachment>>,
     pub tokens_used: Option<u32>,
     pub generation_time_ms: Option<u64>,
 }

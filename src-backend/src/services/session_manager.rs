@@ -23,9 +23,19 @@ pub struct Message {
     pub conversation_id: String,
     pub role: String,
     pub content: String,
+    pub attachments: Vec<MessageAttachment>,
     pub tokens_used: Option<u32>,
     pub generation_time_ms: Option<u64>,
     pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageAttachment {
+    pub id: String,
+    pub name: String,
+    pub mime_type: String,
+    pub size_bytes: u64,
+    pub content: String,
 }
 
 pub struct SessionManager {
@@ -52,6 +62,9 @@ impl SessionManager {
             updated_at: chrono::Utc::now().to_rfc3339(),
         };
         self.db.insert_conversation(&convo).await?;
+        if let Some(model_id) = convo.model_id.as_deref() {
+            self.db.touch_model_last_used(model_id).await?;
+        }
         Ok(convo)
     }
 
@@ -74,11 +87,13 @@ impl SessionManager {
             conversation_id: conversation_id.to_string(),
             role: req.role,
             content: req.content,
+            attachments: req.attachments.unwrap_or_default(),
             tokens_used: req.tokens_used,
             generation_time_ms: req.generation_time_ms,
             created_at: chrono::Utc::now().to_rfc3339(),
         };
         self.db.insert_message(&msg).await?;
+        self.db.touch_model_last_used_for_conversation(conversation_id).await?;
         Ok(msg)
     }
 
@@ -117,6 +132,7 @@ impl SessionManager {
                 conversation_id: new_id.clone(),
                 role: msg.role.clone(),
                 content: msg.content.clone(),
+                attachments: msg.attachments.clone(),
                 tokens_used: msg.tokens_used,
                 generation_time_ms: msg.generation_time_ms,
                 created_at: msg.created_at.clone(),

@@ -5,6 +5,7 @@ import {
   Plus,
   MessageSquare,
   Box,
+  Activity,
   Settings,
   Search,
   PanelLeftClose,
@@ -153,6 +154,18 @@ export function Sidebar() {
         >
           <Box className="w-4 h-4" />
           Models
+        </button>
+        <button
+          onClick={() => navigate('/models/analytics')}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
+            location.pathname.startsWith('/models/analytics')
+              ? 'bg-surface-hover text-text'
+              : 'hover:bg-surface-hover/60 text-text-secondary'
+          )}
+        >
+          <Activity className="w-4 h-4" />
+          Analytics
         </button>
         <button
           onClick={() => navigate('/settings')}

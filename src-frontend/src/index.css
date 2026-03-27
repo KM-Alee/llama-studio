@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "highlight.js/styles/github-dark.css";
+@import "katex/dist/katex.min.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -133,4 +134,95 @@ button:active:not(:disabled) {
 /* Smooth transitions on interactive elements */
 button, a, input, select, textarea {
   transition: all 0.15s ease;
+}
+
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  margin: 1.1rem 0 0.55rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.chat-markdown h1 {
+  font-size: 1.25rem;
+}
+
+.chat-markdown h2 {
+  font-size: 1.1rem;
+}
+
+.chat-markdown h3,
+.chat-markdown h4 {
+  font-size: 1rem;
+}
+
+.chat-markdown p,
+.chat-markdown ul,
+.chat-markdown ol,
+.chat-markdown blockquote,
+.chat-markdown pre,
+.chat-markdown .katex-display {
+  margin: 0.8rem 0;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  padding-left: 1.35rem;
+}
+
+.chat-markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.chat-markdown blockquote {
+  border-left: 3px solid color-mix(in srgb, var(--color-primary) 65%, transparent);
+  padding: 0.1rem 0 0.1rem 0.9rem;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
+  border-radius: 0 12px 12px 0;
+}
+
+.chat-markdown hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 1rem 0;
+}
+
+.chat-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
+}
+
+.chat-markdown th,
+.chat-markdown td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.chat-markdown th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-surface-dim) 75%, transparent);
+}
+
+.chat-markdown-user blockquote,
+.chat-markdown-user table {
+  background: color-mix(in srgb, white 45%, transparent);
 }

@@ -1,9 +1,11 @@
 import { create } from 'zustand'
+import type { MessageAttachment } from '@/lib/api'
 
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
+  attachments?: MessageAttachment[]
   createdAt: string
   tokensUsed?: number
   generationTimeMs?: number

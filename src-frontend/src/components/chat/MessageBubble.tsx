@@ -1,12 +1,11 @@
 import { memo } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import { Copy, Check, Bot, User } from 'lucide-react'
+import { Copy, Check, Bot, FileCode2 } from 'lucide-react'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { ChatMessage } from '@/stores/chatStore'
-import { cn } from '@/lib/utils'
+import { cn, formatBytes } from '@/lib/utils'
+import { getAttachmentLanguage } from '@/lib/chatAttachments'
+import { MarkdownRenderer } from './MarkdownRenderer'
 
 interface Props {
   message: ChatMessage
@@ -16,6 +15,7 @@ interface Props {
 export const MessageBubble = memo(function MessageBubble({ message, isStreaming }: Props) {
   const [copied, setCopied] = useState(false)
   const isUser = message.role === 'user'
+  const attachments = message.attachments ?? []
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
@@ -46,48 +46,39 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
             : 'text-text flex-1 min-w-0'
         )}
       >
-        {isUser ? (
-          <p className="whitespace-pre-wrap">{message.content}</p>
-        ) : (
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-headings:mt-5 prose-headings:mb-2 prose-pre:my-3 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5 prose-p:leading-relaxed">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              rehypePlugins={[rehypeHighlight]}
-              components={{
-                code({ className, children, ...props }) {
-                  const isInline = !className
-                  if (isInline) {
-                    return (
-                      <code className="bg-surface-dim px-1.5 py-0.5 rounded-md text-xs font-mono text-primary-light" {...props}>
-                        {children}
-                      </code>
-                    )
-                  }
-                  return (
-                    <div className="relative group/code my-3">
-                      <pre className="bg-[#161614] text-[#d4d4c8] rounded-xl p-4 overflow-x-auto text-sm leading-relaxed border border-border/50">
-                        <code className={className} {...props}>
-                          {children}
-                        </code>
-                      </pre>
-                      <button
-                        onClick={() => {
-                          const text = String(children).replace(/\n$/, '')
-                          navigator.clipboard.writeText(text)
-                        }}
-                        className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-white/10 opacity-0 group-hover/code:opacity-100 transition-opacity text-white/60 hover:text-white/90"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
+        {attachments.length > 0 && (
+          <div className="mb-3 space-y-2">
+            {attachments.map((attachment) => {
+              const preview = attachment.content.slice(0, 1000)
+              const isTruncated = attachment.content.length > preview.length
+              return (
+                <details
+                  key={attachment.id}
+                  className="rounded-xl border border-border/70 bg-surface/70 p-3"
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm text-text-secondary">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <FileCode2 className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate font-medium text-text">{attachment.name}</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-text-muted">
+                      {getAttachmentLanguage(attachment.name)} · {formatBytes(attachment.size_bytes)}
+                    </span>
+                  </summary>
+                  <pre className="mt-3 overflow-x-auto rounded-xl border border-border/70 bg-[#111111] px-3 py-3 text-xs leading-6 text-white/88">
+                    <code>{isTruncated ? `${preview}\n…` : preview}</code>
+                  </pre>
+                </details>
+              )
+            })}
           </div>
         )}
+
+        {message.content ? (
+          <MarkdownRenderer content={message.content} tone={isUser ? 'user' : 'assistant'} />
+        ) : attachments.length > 0 ? (
+          <p className="text-sm text-text-secondary">Attached {attachments.length} file{attachments.length === 1 ? '' : 's'}.</p>
+        ) : null}
 
         {isStreaming && (
           <span className="inline-block w-1.5 h-4 bg-primary/60 animate-pulse ml-0.5 rounded-sm" />

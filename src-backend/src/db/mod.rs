@@ -3,12 +3,12 @@ use rusqlite::Connection;
 use serde_json::Value;
 use std::sync::Mutex;
 
-use crate::services::model_registry::Model;
-use crate::services::session_manager::{Conversation, Message};
+use crate::services::model_registry::{Model, ModelAnalytics, ModelConversationSummary};
+use crate::services::session_manager::{Conversation, Message, MessageAttachment};
 use crate::services::preset_manager::Preset;
 
 /// Current schema version for migration tracking.
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 
 /// SQLite database wrapper with synchronous rusqlite behind a Mutex.
 /// All public methods are async for compatibility with Axum handlers.
@@ -79,6 +79,7 @@ impl Database {
                     conversation_id TEXT NOT NULL,
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
+                    attachments_json TEXT NOT NULL DEFAULT '[]',
                     tokens_used INTEGER,
                     generation_time_ms INTEGER,
                     created_at TEXT NOT NULL,
@@ -107,6 +108,16 @@ impl Database {
                 "
             )?;
             tracing::info!("Database migrated to schema version 1");
+        }
+
+        if (1..2).contains(&current) {
+            conn.execute_batch(
+                "
+                ALTER TABLE messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]';
+                INSERT INTO schema_version (version) VALUES (2);
+                "
+            )?;
+            tracing::info!("Database migrated to schema version 2");
         }
 
         tracing::info!(version = SCHEMA_VERSION, "Database schema is up to date");
@@ -301,17 +312,20 @@ impl Database {
     pub async fn get_messages(&self, conversation_id: &str) -> Result<Vec<Message>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, conversation_id, role, content, tokens_used, generation_time_ms, created_at FROM messages WHERE conversation_id = ?1 ORDER BY created_at"
+            "SELECT id, conversation_id, role, content, attachments_json, tokens_used, generation_time_ms, created_at FROM messages WHERE conversation_id = ?1 ORDER BY created_at"
         )?;
         let messages = stmt.query_map([conversation_id], |row| {
+            let attachments_json: String = row.get(4)?;
             Ok(Message {
                 id: row.get(0)?,
                 conversation_id: row.get(1)?,
                 role: row.get(2)?,
                 content: row.get(3)?,
-                tokens_used: row.get(4)?,
-                generation_time_ms: row.get(5)?,
-                created_at: row.get(6)?,
+                attachments: serde_json::from_str::<Vec<MessageAttachment>>(&attachments_json)
+                    .unwrap_or_default(),
+                tokens_used: row.get(5)?,
+                generation_time_ms: row.get(6)?,
+                created_at: row.get(7)?,
             })
         })?.filter_map(|r| r.ok()).collect();
         Ok(messages)
@@ -320,9 +334,10 @@ impl Database {
     pub async fn insert_message(&self, msg: &Message) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO messages (id, conversation_id, role, content, tokens_used, generation_time_ms, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO messages (id, conversation_id, role, content, attachments_json, tokens_used, generation_time_ms, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             rusqlite::params![
                 msg.id, msg.conversation_id, msg.role, msg.content,
+                serde_json::to_string(&msg.attachments)?,
                 msg.tokens_used, msg.generation_time_ms, msg.created_at
             ],
         )?;
@@ -332,6 +347,146 @@ impl Database {
             rusqlite::params![msg.created_at, msg.conversation_id],
         )?;
         Ok(())
+    }
+
+    pub async fn touch_model_last_used(&self, model_id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE models SET last_used = ?1 WHERE id = ?2",
+            rusqlite::params![chrono::Utc::now().to_rfc3339(), model_id],
+        )?;
+        Ok(())
+    }
+
+    pub async fn touch_model_last_used_for_conversation(&self, conversation_id: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE models
+             SET last_used = ?1
+             WHERE id = (SELECT model_id FROM conversations WHERE id = ?2)",
+            rusqlite::params![chrono::Utc::now().to_rfc3339(), conversation_id],
+        )?;
+        Ok(())
+    }
+
+    pub async fn get_model_analytics(&self, model_id: &str) -> Result<ModelAnalytics> {
+        let model = self.get_model(model_id).await?;
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT c.id, c.title, c.updated_at, m.role, m.tokens_used, m.generation_time_ms, m.attachments_json
+             FROM conversations c
+             LEFT JOIN messages m ON m.conversation_id = c.id
+             WHERE c.model_id = ?1
+             ORDER BY c.updated_at DESC, m.created_at ASC"
+        )?;
+
+        let mut rows = stmt.query([model_id])?;
+        let mut recent_conversations: Vec<ModelConversationSummary> = Vec::new();
+        let mut current_conversation_id: Option<String> = None;
+        let mut current_conversation: Option<ModelConversationSummary> = None;
+        let mut conversation_count: u32 = 0;
+        let mut message_count: u32 = 0;
+        let mut assistant_message_count: u32 = 0;
+        let mut attachment_count: u32 = 0;
+        let mut total_tokens: u64 = 0;
+        let mut total_generation_time_ms: u64 = 0;
+
+        while let Some(row) = rows.next()? {
+            let conversation_id: String = row.get(0)?;
+            let title: String = row.get(1)?;
+            let updated_at: String = row.get(2)?;
+            let role: Option<String> = row.get(3)?;
+            let tokens_used: Option<u32> = row.get(4)?;
+            let generation_time_ms: Option<u64> = row.get(5)?;
+            let attachments_json: Option<String> = row.get(6)?;
+
+            if current_conversation_id.as_deref() != Some(conversation_id.as_str()) {
+                if let Some(summary) = current_conversation.take() {
+                    recent_conversations.push(summary);
+                }
+
+                current_conversation_id = Some(conversation_id.clone());
+                current_conversation = Some(ModelConversationSummary {
+                    id: conversation_id.clone(),
+                    title,
+                    updated_at,
+                    message_count: 0,
+                    assistant_messages: 0,
+                    attachment_count: 0,
+                    total_tokens: 0,
+                    total_generation_time_ms: 0,
+                });
+                conversation_count += 1;
+            }
+
+            if let Some(role) = role {
+                let attachments_len = attachments_json
+                    .as_deref()
+                    .and_then(|json| serde_json::from_str::<Vec<MessageAttachment>>(json).ok())
+                    .map(|attachments| attachments.len() as u32)
+                    .unwrap_or(0);
+
+                message_count += 1;
+                attachment_count += attachments_len;
+
+                if let Some(summary) = current_conversation.as_mut() {
+                    summary.message_count += 1;
+                    summary.attachment_count += attachments_len;
+                }
+
+                if role == "assistant" {
+                    assistant_message_count += 1;
+                    let token_count = u64::from(tokens_used.unwrap_or(0));
+                    let generation_ms = generation_time_ms.unwrap_or(0);
+                    total_tokens += token_count;
+                    total_generation_time_ms += generation_ms;
+
+                    if let Some(summary) = current_conversation.as_mut() {
+                        summary.assistant_messages += 1;
+                        summary.total_tokens += token_count;
+                        summary.total_generation_time_ms += generation_ms;
+                    }
+                }
+            }
+        }
+
+        if let Some(summary) = current_conversation {
+            recent_conversations.push(summary);
+        }
+
+        let avg_tokens_per_response = if assistant_message_count > 0 {
+            Some(total_tokens as f64 / f64::from(assistant_message_count))
+        } else {
+            None
+        };
+
+        let avg_generation_time_ms = if assistant_message_count > 0 {
+            Some(total_generation_time_ms as f64 / f64::from(assistant_message_count))
+        } else {
+            None
+        };
+
+        let tokens_per_second = if total_generation_time_ms > 0 {
+            Some(total_tokens as f64 / (total_generation_time_ms as f64 / 1000.0))
+        } else {
+            None
+        };
+
+        Ok(ModelAnalytics {
+            model_id: model.id,
+            conversation_count,
+            message_count,
+            assistant_message_count,
+            attachment_count,
+            total_tokens,
+            avg_tokens_per_response,
+            total_generation_time_ms,
+            avg_generation_time_ms,
+            tokens_per_second,
+            last_used: model.last_used,
+            context_length: model.context_length,
+            recent_conversations,
+        })
     }
 
     // === Presets ===

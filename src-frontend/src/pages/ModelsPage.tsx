@@ -1,19 +1,21 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useDeferredValue } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import {
   Box, Scan, Trash2, Play, HardDrive, LayoutGrid, List, Search,
   Download, X, FolderOpen, FileDown, ExternalLink,
-  Square, AlertCircle, ChevronDown, ChevronRight, Heart
+  Square, AlertCircle, ChevronDown, ChevronRight, Heart, Activity, Clock3, Cpu, Sparkles
 } from 'lucide-react'
 import {
   getModels, scanModels, deleteModel, startServer, stopServer,
   importModel, getDownloads, cancelDownload, searchHuggingFace,
-  getHuggingFaceFiles, startDownload,
+  getHuggingFaceFiles, getModelAnalytics, getModelInspection, startDownload,
   type Model, type DownloadInfo, type HuggingFaceModel, type HuggingFaceFile,
+  type ModelAnalytics, type ModelInspection,
 } from '@/lib/api'
 import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
-import { formatBytes, cn } from '@/lib/utils'
+import { formatBytes, cn, formatDate } from '@/lib/utils'
 import { InputModal, ConfirmModal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 
@@ -48,6 +50,7 @@ function extractQuantFromFilename(filename: string): string | null {
 }
 
 export function ModelsPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const setModels = useModelStore((s) => s.setModels)
   const activeModelId = useModelStore((s) => s.activeModelId)
@@ -62,6 +65,7 @@ export function ModelsPage() {
   const [dragOver, setDragOver] = useState(false)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [deleteModelTarget, setDeleteModelTarget] = useState<string | null>(null)
+  const deferredHfQuery = useDeferredValue(hfQuery.trim())
 
   const { data, isLoading } = useQuery({
     queryKey: ['models'],
@@ -79,9 +83,9 @@ export function ModelsPage() {
   })
 
   const { data: hfResults, isFetching: hfSearching } = useQuery({
-    queryKey: ['hf-search', hfQuery],
-    queryFn: () => searchHuggingFace(hfQuery),
-    enabled: hfQuery.length >= 2,
+    queryKey: ['hf-search', deferredHfQuery],
+    queryFn: () => searchHuggingFace(deferredHfQuery),
+    enabled: deferredHfQuery.length >= 2,
   })
 
   const scanMutation = useMutation({
@@ -154,6 +158,14 @@ export function ModelsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate(models[0] ? `/models/analytics/${selectedModel?.id ?? models[0].id}` : '/models/analytics')}
+              disabled={models.length === 0}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-text-secondary hover:bg-surface-hover text-sm font-medium transition-colors disabled:opacity-40"
+            >
+              <Activity className="w-4 h-4" />
+              Analytics
+            </button>
             {serverStatus === 'running' && (
               <button
                 onClick={() => stopMutation.mutate()}
@@ -314,17 +326,17 @@ export function ModelsPage() {
                     />
                   ))}
                 </div>
-              ) : hfQuery.length >= 2 && !hfSearching ? (
+              ) : deferredHfQuery.length >= 2 && !hfSearching ? (
                 <div className="text-center py-16">
                   <Search className="w-10 h-10 text-text-muted/20 mx-auto mb-3" />
-                  <p className="text-sm text-text-muted">No GGUF models found for &quot;{hfQuery}&quot;</p>
+                  <p className="text-sm text-text-muted">No GGUF models found for &quot;{deferredHfQuery}&quot;</p>
                 </div>
               ) : (
                 <div className="text-center py-16">
                   <Download className="w-10 h-10 text-text-muted/20 mx-auto mb-3" />
                   <h3 className="text-base font-semibold text-text mb-1.5">Browse HuggingFace</h3>
                   <p className="text-sm text-text-muted max-w-sm mx-auto">
-                    Search for GGUF models and download them directly. Try &quot;llama&quot;, &quot;mistral&quot;, or &quot;phi&quot;.
+                    Search for GGUF models and inspect real file sizes before downloading. Try &quot;llama&quot;, &quot;mistral&quot;, or &quot;qwen&quot;.
                   </p>
                 </div>
               )}
@@ -359,6 +371,7 @@ export function ModelsPage() {
           isActive={selectedModel.id === activeModelId}
           onClose={() => setSelectedModel(null)}
           onLoad={() => { setActiveModel(selectedModel.id); startMutation.mutate(selectedModel.id) }}
+          onOpenAnalytics={() => navigate(`/models/analytics/${selectedModel.id}`)}
           serverStatus={serverStatus}
         />
       )}
@@ -410,7 +423,7 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
     const url = `https://huggingface.co/${model.id}/resolve/main/${file.filename}`
     try {
       await startDownload(url, file.filename)
-      toast.success(`Downloading ${file.filename}`)
+      toast.success(`Downloading ${file.filename}${file.size > 0 ? ` · ${formatBytes(file.size)}` : ''}`)
       queryClient.invalidateQueries({ queryKey: ['downloads'] })
     } catch {
       toast.error('Failed to start download')
@@ -418,6 +431,9 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
   }
 
   const files = filesData?.files ?? []
+  const ggufCount = filesData?.gguf_count ?? files.length
+  const totalSize = filesData?.total_size_bytes ?? 0
+  const visibleTags = model.tags.filter((tag) => !['gguf', 'text-generation', 'conversational'].includes(tag)).slice(0, 4)
 
   return (
     <div className="rounded-xl border border-border bg-surface-dim overflow-hidden transition-colors hover:border-border/80">
@@ -441,7 +457,20 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
               {model.likes}
             </span>
             {model.author && <span>by {model.author}</span>}
+            {model.last_modified && <span>updated {formatDate(model.last_modified)}</span>}
           </div>
+          {visibleTags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {visibleTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-text-muted"
+                >
+                  {tag.replace(/^base_model:/, '')}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <a
@@ -464,6 +493,14 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
       {/* Expanded file listing */}
       {isExpanded && (
         <div className="border-t border-border bg-surface">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 text-xs text-text-muted">
+            <span className="rounded-full bg-surface-dim px-2 py-1 font-medium text-text-secondary">
+              {ggufCount} GGUF files
+            </span>
+            <span className="rounded-full bg-surface-dim px-2 py-1 font-medium text-text-secondary">
+              {totalSize > 0 ? formatBytes(totalSize) : 'Size unavailable'} total
+            </span>
+          </div>
           {filesLoading ? (
             <div className="p-4 text-center text-sm text-text-muted">
               <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-2" />
@@ -616,10 +653,24 @@ function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }:
 
 function ModelDetailPanel({ model, isActive, onClose, onLoad, serverStatus }: {
   model: ModelDetail; isActive: boolean
-  onClose: () => void; onLoad: () => void; serverStatus: string
+  onClose: () => void; onLoad: () => void; onOpenAnalytics: () => void; serverStatus: string
 }) {
+  const { data: inspectionData, isLoading: inspectionLoading } = useQuery({
+    queryKey: ['model-inspection', model.id],
+    queryFn: () => getModelInspection(model.id),
+  })
+
+  const { data: analyticsData } = useQuery({
+    queryKey: ['model-analytics', model.id],
+    queryFn: () => getModelAnalytics(model.id),
+  })
+
+  const resolvedModel = inspectionData?.model ?? model
+  const inspection = inspectionData?.inspection
+  const analytics = analyticsData?.analytics
+
   return (
-    <div className="w-80 border-l border-border bg-surface p-5 overflow-y-auto shrink-0">
+    <div className="w-[24rem] border-l border-border bg-surface p-5 overflow-y-auto shrink-0">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-sm font-bold text-text">Details</h2>
         <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted">
@@ -627,21 +678,68 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, serverStatus }: {
         </button>
       </div>
       <div className="space-y-4">
-        <DetailField label="Name" value={model.name} />
+        <DetailField label="Name" value={resolvedModel.name} />
         <div>
           <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">Path</label>
-          <p className="text-xs text-text-secondary mt-1.5 break-all font-mono leading-relaxed bg-surface-dim rounded-lg p-2">{model.path}</p>
+          <p className="text-xs text-text-secondary mt-1.5 break-all font-mono leading-relaxed bg-surface-dim rounded-lg p-2">{resolvedModel.path}</p>
         </div>
-        <DetailField label="Size" value={formatBytes(model.size_bytes)} />
-        <DetailField label="VRAM" value={estimateVram(model.size_bytes, model.quantization)} />
-        {model.quantization && <DetailField label="Quantization" value={model.quantization} />}
-        {model.architecture && <DetailField label="Architecture" value={model.architecture} />}
-        {model.parameters && <DetailField label="Parameters" value={model.parameters} />}
-        {model.context_length && (
-          <DetailField label="Context" value={`${model.context_length.toLocaleString()} tokens`} />
+        <DetailField label="Size" value={formatBytes(resolvedModel.size_bytes)} />
+        <DetailField label="VRAM" value={estimateVram(resolvedModel.size_bytes, resolvedModel.quantization ?? undefined)} />
+        {resolvedModel.quantization && <DetailField label="Quantization" value={resolvedModel.quantization} />}
+        {resolvedModel.architecture && <DetailField label="Architecture" value={resolvedModel.architecture} />}
+        {resolvedModel.parameters && <DetailField label="Parameters" value={resolvedModel.parameters} />}
+        {resolvedModel.context_length && (
+          <DetailField label="Context" value={`${resolvedModel.context_length.toLocaleString()} tokens`} />
         )}
-        <DetailField label="Added" value={new Date(model.added_at).toLocaleDateString()} />
-        <div className="pt-4 border-t border-border">
+        {resolvedModel.last_used && <DetailField label="Last Used" value={formatDate(resolvedModel.last_used)} />}
+        <DetailField label="Added" value={new Date(resolvedModel.added_at).toLocaleDateString()} />
+
+        <div className="rounded-2xl border border-border bg-surface-dim p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">llama.cpp Inspection</h3>
+            {inspectionLoading && <span className="text-[11px] text-text-muted">Inspecting…</span>}
+          </div>
+          {inspection ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <InfoPill icon={<Sparkles className="h-3.5 w-3.5" />} label="Format" value={inspection.file_format ?? 'Unknown'} />
+                <InfoPill icon={<Cpu className="h-3.5 w-3.5" />} label="Type" value={inspection.file_type ?? 'Unknown'} />
+                <InfoPill icon={<Cpu className="h-3.5 w-3.5" />} label="Layers" value={inspection.n_layer != null ? String(inspection.n_layer) : 'Unknown'} />
+                <InfoPill icon={<Clock3 className="h-3.5 w-3.5" />} label="Vocab" value={inspection.vocab_size != null ? inspection.vocab_size.toLocaleString() : 'Unknown'} />
+              </div>
+              <div className="rounded-xl bg-surface px-3 py-2 text-[11px] text-text-muted">
+                <div className="font-semibold text-text-secondary">Command</div>
+                <div className="mt-1 break-all font-mono">{inspection.command}</div>
+              </div>
+              {inspection.warnings.length > 0 && (
+                <p className="text-xs text-warning">{inspection.warnings[0]}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-text-muted">Run-time metadata will appear here after inspection completes.</p>
+          )}
+        </div>
+
+        {analytics && (
+          <div className="rounded-2xl border border-border bg-surface-dim p-4">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">Usage Snapshot</h3>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <InfoPill icon={<Activity className="h-3.5 w-3.5" />} label="Chats" value={String(analytics.conversation_count)} />
+              <InfoPill icon={<Clock3 className="h-3.5 w-3.5" />} label="Speed" value={analytics.tokens_per_second != null ? `${analytics.tokens_per_second.toFixed(1)} tok/s` : 'No data'} />
+              <InfoPill icon={<Sparkles className="h-3.5 w-3.5" />} label="Tokens" value={analytics.total_tokens.toLocaleString()} />
+              <InfoPill icon={<Cpu className="h-3.5 w-3.5" />} label="Responses" value={String(analytics.assistant_message_count)} />
+            </div>
+          </div>
+        )}
+
+        <div className="pt-4 border-t border-border space-y-2">
+          <button
+            onClick={onOpenAnalytics}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border text-text hover:bg-surface-hover text-sm font-semibold transition-colors"
+          >
+            <Activity className="w-4 h-4" />
+            Open Analytics
+          </button>
           <button
             onClick={onLoad}
             disabled={serverStatus !== 'stopped' || isActive}
@@ -652,6 +750,18 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, serverStatus }: {
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function InfoPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-surface px-3 py-2 text-text-secondary">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-text-muted">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <div className="mt-1 text-sm font-semibold text-text">{value}</div>
     </div>
   )
 }

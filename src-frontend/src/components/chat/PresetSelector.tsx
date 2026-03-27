@@ -36,11 +36,11 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-text-secondary hover:bg-surface-hover border border-border transition-colors"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-surface-hover border border-border transition-colors h-8"
       >
-        <Sliders className="w-4 h-4" />
-        <span>{selectedPreset ? selectedPreset.name : 'Default'}</span>
-        <ChevronDown className="w-3.5 h-3.5" />
+        <Sliders className="w-3.5 h-3.5" />
+        <span className="max-w-[60px] truncate">{selectedPreset ? selectedPreset.name : 'Default'}</span>
+        <ChevronDown className="w-3 h-3" />
       </button>
 
       {open && (

@@ -44,9 +44,18 @@ export interface Message {
   conversation_id: string
   role: string
   content: string
+  attachments: MessageAttachment[]
   tokens_used: number | null
   generation_time_ms: number | null
   created_at: string
+}
+
+export interface MessageAttachment {
+  id: string
+  name: string
+  mime_type: string
+  size_bytes: number
+  content: string
 }
 
 export interface Preset {
@@ -83,6 +92,67 @@ export interface HuggingFaceModel {
 export interface HuggingFaceFile {
   filename: string
   size: number
+}
+
+export interface HuggingFaceFilesResponse {
+  repo_id: string
+  files: HuggingFaceFile[]
+  gguf_count: number
+  total_size_bytes: number
+}
+
+export interface ModelMetadataEntry {
+  key: string
+  value_type: string | null
+  value: string
+}
+
+export interface ModelInspection {
+  binary: string
+  command: string
+  inspected_at: string
+  file_format: string | null
+  file_type: string | null
+  file_size: string | null
+  architecture: string | null
+  general_name: string | null
+  context_length: number | null
+  model_type: string | null
+  model_params: string | null
+  n_layer: number | null
+  n_head: number | null
+  n_embd: number | null
+  vocab_size: number | null
+  metadata: ModelMetadataEntry[]
+  raw_output: string[]
+  warnings: string[]
+}
+
+export interface ModelConversationSummary {
+  id: string
+  title: string
+  updated_at: string
+  message_count: number
+  assistant_messages: number
+  attachment_count: number
+  total_tokens: number
+  total_generation_time_ms: number
+}
+
+export interface ModelAnalytics {
+  model_id: string
+  conversation_count: number
+  message_count: number
+  assistant_message_count: number
+  attachment_count: number
+  total_tokens: number
+  avg_tokens_per_response: number | null
+  total_generation_time_ms: number
+  avg_generation_time_ms: number | null
+  tokens_per_second: number | null
+  last_used: string | null
+  context_length: number | null
+  recent_conversations: ModelConversationSummary[]
 }
 
 export interface AppConfig {
@@ -137,7 +207,11 @@ export const cancelDownload = (id: string) =>
 export const searchHuggingFace = (q: string, limit = 20) =>
   request<{ models: HuggingFaceModel[] }>(`/huggingface/search?q=${encodeURIComponent(q)}&limit=${limit}`)
 export const getHuggingFaceFiles = (repoId: string) =>
-  request<{ repo_id: string; files: HuggingFaceFile[] }>(`/huggingface/model-files/${repoId}`)
+  request<HuggingFaceFilesResponse>(`/huggingface/model-files/${repoId}`)
+export const getModelInspection = (id: string) =>
+  request<{ model: Model; inspection: ModelInspection }>(`/models/${encodeURIComponent(id)}/inspect`)
+export const getModelAnalytics = (id: string) =>
+  request<{ analytics: ModelAnalytics }>(`/models/${encodeURIComponent(id)}/analytics`)
 
 // Server
 export const startServer = (modelId: string, extraArgs: string[] = []) =>
@@ -187,6 +261,7 @@ export const getMessages = (conversationId: string) =>
 export const addMessage = (conversationId: string, data: {
   role: string
   content: string
+  attachments?: MessageAttachment[]
   tokens_used?: number
   generation_time_ms?: number
 }) =>

@@ -31,7 +31,7 @@ fn default_limit() -> u32 {
 async fn get_model_files(
     axum::extract::Path(repo_id): axum::extract::Path<String>,
 ) -> AppResult<Json<Value>> {
-    let url = format!("https://huggingface.co/api/models/{}", repo_id);
+    let url = format!("https://huggingface.co/api/models/{}?blobs=true", repo_id);
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
@@ -57,7 +57,7 @@ async fn get_model_files(
         .await
         .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to parse HF response: {}", e)))?;
 
-    let files: Vec<Value> = model
+    let mut files: Vec<Value> = model
         .get("siblings")
         .and_then(|s| s.as_array())
         .unwrap_or(&vec![])
@@ -67,12 +67,31 @@ async fn get_model_files(
             if !filename.ends_with(".gguf") {
                 return None;
             }
-            let size = sibling.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+            let size = sibling.get("size")
+                .and_then(|v| v.as_u64())
+                .or_else(|| sibling.get("lfs").and_then(|value| value.get("size")).and_then(|v| v.as_u64()))
+                .unwrap_or(0);
             Some(json!({ "filename": filename, "size": size }))
         })
         .collect();
 
-    Ok(Json(json!({ "repo_id": repo_id, "files": files })))
+    files.sort_by(|left, right| {
+        let left_size = left.get("size").and_then(|value| value.as_u64()).unwrap_or(0);
+        let right_size = right.get("size").and_then(|value| value.as_u64()).unwrap_or(0);
+        right_size.cmp(&left_size)
+    });
+
+    let total_size_bytes: u64 = files
+        .iter()
+        .filter_map(|file| file.get("size").and_then(|value| value.as_u64()))
+        .sum();
+
+    Ok(Json(json!({
+        "repo_id": repo_id,
+        "files": files,
+        "gguf_count": files.len(),
+        "total_size_bytes": total_size_bytes,
+    })))
 }
 
 /// Search HuggingFace for GGUF models matching a query.
@@ -107,8 +126,10 @@ async fn search_models(Query(params): Query<SearchQuery>) -> AppResult<Json<Valu
 
     // Extract relevant fields for each model
     let results: Vec<Value> = models.iter().map(|m| {
+        let id = m.get("id").and_then(|v| v.as_str()).unwrap_or("");
         json!({
-            "id": m.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+            "id": id,
+            "name": id.rsplit('/').next().unwrap_or(id),
             "author": m.get("author").and_then(|v| v.as_str()).unwrap_or(""),
             "downloads": m.get("downloads").and_then(|v| v.as_u64()).unwrap_or(0),
             "likes": m.get("likes").and_then(|v| v.as_u64()).unwrap_or(0),

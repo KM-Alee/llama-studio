@@ -19,6 +19,35 @@ pub struct Model {
     pub last_used: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelConversationSummary {
+    pub id: String,
+    pub title: String,
+    pub updated_at: String,
+    pub message_count: u32,
+    pub assistant_messages: u32,
+    pub attachment_count: u32,
+    pub total_tokens: u64,
+    pub total_generation_time_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelAnalytics {
+    pub model_id: String,
+    pub conversation_count: u32,
+    pub message_count: u32,
+    pub assistant_message_count: u32,
+    pub attachment_count: u32,
+    pub total_tokens: u64,
+    pub avg_tokens_per_response: Option<f64>,
+    pub total_generation_time_ms: u64,
+    pub avg_generation_time_ms: Option<f64>,
+    pub tokens_per_second: Option<f64>,
+    pub last_used: Option<String>,
+    pub context_length: Option<u32>,
+    pub recent_conversations: Vec<ModelConversationSummary>,
+}
+
 pub struct ModelRegistry {
     db: Arc<Database>,
     config: Arc<ConfigStore>,

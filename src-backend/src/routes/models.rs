@@ -15,6 +15,8 @@ pub fn router() -> Router<AppState> {
         .route("/", get(list_models))
         .route("/scan", post(scan_models))
         .route("/import", post(import_model))
+    .route("/{id}/inspect", get(inspect_model))
+    .route("/{id}/analytics", get(get_model_analytics))
         .route("/{id}", get(get_model).delete(delete_model))
 }
 
@@ -86,6 +88,47 @@ async fn get_model(
 ) -> AppResult<Json<Value>> {
     let model = state.models.get(&id).await?;
     Ok(Json(json!(model)))
+}
+
+async fn inspect_model(
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> AppResult<Json<Value>> {
+    let mut model = state.models.get(&id).await?;
+    let inspection = state.inspector.inspect(std::path::Path::new(&model.path)).await
+        .map_err(AppError::Internal)?;
+
+    if model.architecture.as_deref() != inspection.architecture.as_deref() {
+        model.architecture = inspection.architecture.clone();
+    }
+    if model.parameters.as_deref() != inspection.model_params.as_deref() {
+        model.parameters = inspection.model_params.clone();
+    }
+    if model.context_length != inspection.context_length {
+        model.context_length = inspection.context_length;
+    }
+    if model.quantization.is_none() {
+        model.quantization = inspection
+            .file_type
+            .as_ref()
+            .map(|value| value.split(" - ").next().unwrap_or(value).to_string());
+    }
+
+    state.db.upsert_model(&model).await.map_err(AppError::Internal)?;
+
+    Ok(Json(json!({
+        "model": model,
+        "inspection": inspection,
+    })))
+}
+
+async fn get_model_analytics(
+    State(state): State<AppState>,
+    axum::extract::Path(id): axum::extract::Path<String>,
+) -> AppResult<Json<Value>> {
+    let analytics = state.db.get_model_analytics(&id).await
+        .map_err(AppError::Internal)?;
+    Ok(Json(json!({ "analytics": analytics })))
 }
 
 async fn delete_model(
