@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::Arc;
 
 use crate::db::Database;
 
@@ -68,7 +68,9 @@ impl PresetManager {
                     "top_k": 30,
                     "repeat_penalty": 1.0,
                 }),
-                system_prompt: Some("You are an expert programmer. Write clean, efficient code.".to_string()),
+                system_prompt: Some(
+                    "You are an expert programmer. Write clean, efficient code.".to_string(),
+                ),
                 is_builtin: true,
             },
             Preset {

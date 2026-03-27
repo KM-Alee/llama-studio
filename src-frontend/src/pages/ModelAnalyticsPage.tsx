@@ -1,10 +1,20 @@
 import { useQuery } from '@tanstack/react-query'
-import { Activity, ArrowLeft, Clock3, Cpu, HardDrive, MessageSquare, Sparkles } from 'lucide-react'
+import {
+  Activity,
+  ArrowLeft,
+  BarChart3,
+  Clock3,
+  Cpu,
+  Database,
+  HardDrive,
+  MessageSquare,
+  Sparkles,
+} from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 import { getModelAnalytics, getModelInspection, getModels } from '@/lib/api'
-import { formatBytes, formatDate } from '@/lib/utils'
+import { cn, formatBytes, formatDate } from '@/lib/utils'
 
 export function ModelAnalyticsPage() {
   const navigate = useNavigate()
@@ -30,6 +40,14 @@ export function ModelAnalyticsPage() {
     enabled: selectedModel !== null,
   })
 
+  const analytics = analyticsData?.analytics
+  const attachmentPerMessage = analytics && analytics.message_count > 0
+    ? analytics.attachment_count / analytics.message_count
+    : 0
+  const assistantRate = analytics && analytics.message_count > 0
+    ? (analytics.assistant_message_count / analytics.message_count) * 100
+    : 0
+
   if (!modelsLoading && models.length === 0) {
     return (
       <div className="mx-auto flex h-full max-w-3xl items-center justify-center px-6">
@@ -52,7 +70,7 @@ export function ModelAnalyticsPage() {
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full bg-gradient-to-b from-surface to-surface-dim/40">
       <aside className="w-80 shrink-0 border-r border-border bg-surface-dim/60 p-5">
         <button
           onClick={() => navigate('/models')}
@@ -65,7 +83,7 @@ export function ModelAnalyticsPage() {
         <div className="mb-4">
           <h1 className="text-lg font-semibold text-text">Model Analytics</h1>
           <p className="mt-1 text-sm text-text-muted">
-            Inspect runtime metadata from llama.cpp and compare how each local model has been used.
+            Persistent model usage metrics and live llama.cpp inspection details.
           </p>
         </div>
 
@@ -74,16 +92,17 @@ export function ModelAnalyticsPage() {
             <button
               key={model.id}
               onClick={() => navigate(`/models/analytics/${model.id}`)}
-              className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
+              className={cn(
+                'w-full rounded-2xl border px-4 py-3 text-left transition-colors',
                 selectedModel?.id === model.id
                   ? 'border-primary/45 bg-primary/8'
                   : 'border-border bg-surface hover:bg-surface-hover'
-              }`}
+              )}
             >
               <div className="truncate text-sm font-semibold text-text">{model.name}</div>
               <div className="mt-1 flex items-center gap-2 text-xs text-text-muted">
                 <span>{formatBytes(model.size_bytes)}</span>
-                {model.quantization && <span>· {model.quantization}</span>}
+                {model.quantization && <span>| {model.quantization}</span>}
               </div>
             </button>
           ))}
@@ -92,13 +111,13 @@ export function ModelAnalyticsPage() {
 
       <main className="flex-1 overflow-y-auto p-6">
         {selectedModel ? (
-          <div className="mx-auto max-w-5xl space-y-6">
-            <section className="rounded-3xl border border-border bg-surface-dim p-6">
-              <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="mx-auto max-w-6xl space-y-6">
+            <section className="overflow-hidden rounded-3xl border border-border bg-surface-dim p-6">
+              <div className="grid gap-5 md:grid-cols-[1.5fr_1fr]">
                 <div>
                   <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-surface px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
-                    <Activity className="h-3.5 w-3.5" />
-                    Analytics
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    Analytics Overview
                   </div>
                   <h2 className="text-2xl font-semibold tracking-tight text-text">{selectedModel.name}</h2>
                   <p className="mt-2 max-w-2xl text-sm text-text-muted">
@@ -107,16 +126,21 @@ export function ModelAnalyticsPage() {
                 </div>
                 <div className="rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-text-secondary">
                   <div>Added {formatDate(selectedModel.added_at)}</div>
-                  <div className="mt-1">{selectedModel.last_used ? `Last used ${formatDate(selectedModel.last_used)}` : 'Not used in a tracked chat yet'}</div>
+                  <div className="mt-1">
+                    {selectedModel.last_used ? `Last used ${formatDate(selectedModel.last_used)}` : 'No tracked usage yet'}
+                  </div>
+                  {analytics?.context_length && (
+                    <div className="mt-1">Context {analytics.context_length.toLocaleString()} tokens</div>
+                  )}
                 </div>
               </div>
             </section>
 
             <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard icon={<MessageSquare className="h-4 w-4" />} label="Conversations" value={analyticsData?.analytics.conversation_count ?? 0} loading={analyticsLoading} />
-              <MetricCard icon={<Sparkles className="h-4 w-4" />} label="Assistant Tokens" value={(analyticsData?.analytics.total_tokens ?? 0).toLocaleString()} loading={analyticsLoading} />
-              <MetricCard icon={<Clock3 className="h-4 w-4" />} label="Average Response" value={analyticsData?.analytics.avg_generation_time_ms != null ? `${(analyticsData.analytics.avg_generation_time_ms / 1000).toFixed(1)} s` : 'No data'} loading={analyticsLoading} />
-              <MetricCard icon={<Cpu className="h-4 w-4" />} label="Throughput" value={analyticsData?.analytics.tokens_per_second != null ? `${analyticsData.analytics.tokens_per_second.toFixed(1)} tok/s` : 'No data'} loading={analyticsLoading} />
+              <MetricCard icon={<MessageSquare className="h-4 w-4" />} label="Conversations" value={analytics?.conversation_count ?? 0} loading={analyticsLoading} />
+              <MetricCard icon={<Sparkles className="h-4 w-4" />} label="Assistant Tokens" value={(analytics?.total_tokens ?? 0).toLocaleString()} loading={analyticsLoading} />
+              <MetricCard icon={<Clock3 className="h-4 w-4" />} label="Average Response" value={analytics?.avg_generation_time_ms != null ? `${(analytics.avg_generation_time_ms / 1000).toFixed(1)} s` : 'No data'} loading={analyticsLoading} />
+              <MetricCard icon={<Cpu className="h-4 w-4" />} label="Throughput" value={analytics?.tokens_per_second != null ? `${analytics.tokens_per_second.toFixed(1)} tok/s` : 'No data'} loading={analyticsLoading} />
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -124,9 +148,9 @@ export function ModelAnalyticsPage() {
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h3 className="text-base font-semibold text-text">llama.cpp Inspection</h3>
-                    <p className="mt-1 text-sm text-text-muted">Live metadata captured from a real `llama-cli -v` invocation.</p>
+                    <p className="mt-1 text-sm text-text-muted">Live metadata captured from a real llama-cli -v invocation.</p>
                   </div>
-                  {inspectionLoading && <span className="text-sm text-text-muted">Inspecting…</span>}
+                  {inspectionLoading && <span className="text-sm text-text-muted">Inspecting...</span>}
                 </div>
 
                 {inspectionData?.inspection ? (
@@ -163,10 +187,23 @@ export function ModelAnalyticsPage() {
               <div className="rounded-3xl border border-border bg-surface-dim p-6">
                 <h3 className="text-base font-semibold text-text">Usage Breakdown</h3>
                 <div className="mt-4 space-y-3">
-                  <MetricCard icon={<MessageSquare className="h-4 w-4" />} label="Messages" value={analyticsData?.analytics.message_count ?? 0} compact loading={analyticsLoading} />
-                  <MetricCard icon={<Sparkles className="h-4 w-4" />} label="Responses" value={analyticsData?.analytics.assistant_message_count ?? 0} compact loading={analyticsLoading} />
-                  <MetricCard icon={<HardDrive className="h-4 w-4" />} label="Attachments" value={analyticsData?.analytics.attachment_count ?? 0} compact loading={analyticsLoading} />
-                  <MetricCard icon={<Clock3 className="h-4 w-4" />} label="Total Generation Time" value={analyticsData?.analytics.total_generation_time_ms != null ? `${(analyticsData.analytics.total_generation_time_ms / 1000).toFixed(1)} s` : '0 s'} compact loading={analyticsLoading} />
+                  <MetricCard icon={<MessageSquare className="h-4 w-4" />} label="Messages" value={analytics?.message_count ?? 0} compact loading={analyticsLoading} />
+                  <MetricCard icon={<Sparkles className="h-4 w-4" />} label="Responses" value={analytics?.assistant_message_count ?? 0} compact loading={analyticsLoading} />
+                  <MetricCard icon={<HardDrive className="h-4 w-4" />} label="Attachments" value={analytics?.attachment_count ?? 0} compact loading={analyticsLoading} />
+                  <MetricCard icon={<Clock3 className="h-4 w-4" />} label="Total Generation Time" value={analytics?.total_generation_time_ms != null ? `${(analytics.total_generation_time_ms / 1000).toFixed(1)} s` : '0 s'} compact loading={analyticsLoading} />
+                </div>
+
+                <div className="mt-6 space-y-3 rounded-2xl border border-border bg-surface p-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
+                    <Activity className="h-3.5 w-3.5" />
+                    Ratios
+                  </div>
+                  <RatioBar label="Assistant messages" value={`${assistantRate.toFixed(1)}%`} percent={assistantRate} />
+                  <RatioBar
+                    label="Attachments per message"
+                    value={attachmentPerMessage.toFixed(2)}
+                    percent={Math.min(100, attachmentPerMessage * 100)}
+                  />
                 </div>
               </div>
             </section>
@@ -175,25 +212,35 @@ export function ModelAnalyticsPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-semibold text-text">Recent Conversations</h3>
-                  <p className="mt-1 text-sm text-text-muted">Only conversations created while this model was selected are counted here.</p>
+                  <p className="mt-1 text-sm text-text-muted">Conversations created while this model was selected.</p>
+                </div>
+                <div className="hidden items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs text-text-muted md:inline-flex">
+                  <Database className="h-3.5 w-3.5" />
+                  Stored in local analytics DB
                 </div>
               </div>
 
-              {analyticsData?.analytics.recent_conversations.length ? (
+              {analytics?.recent_conversations.length ? (
                 <div className="space-y-2">
-                  {analyticsData.analytics.recent_conversations.map((conversation) => (
+                  {analytics.recent_conversations.map((conversation) => (
                     <button
                       key={conversation.id}
                       onClick={() => navigate(`/chat/${conversation.id}`)}
-                      className="flex w-full items-center justify-between gap-4 rounded-2xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-hover"
+                      className="grid w-full gap-3 rounded-2xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-hover md:grid-cols-[1.4fr_0.6fr]"
                     >
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-text">{conversation.title}</div>
                         <div className="mt-1 text-xs text-text-muted">Updated {formatDate(conversation.updated_at)}</div>
                       </div>
-                      <div className="shrink-0 text-right text-xs text-text-muted">
-                        <div>{conversation.assistant_messages} responses</div>
-                        <div className="mt-1">{conversation.total_tokens.toLocaleString()} tokens</div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-text-muted md:text-right">
+                        <div>
+                          <div className="font-semibold text-text">{conversation.assistant_messages}</div>
+                          <div>Responses</div>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-text">{conversation.total_tokens.toLocaleString()}</div>
+                          <div>Tokens</div>
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -204,7 +251,7 @@ export function ModelAnalyticsPage() {
             </section>
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-text-muted">Loading models…</div>
+          <div className="flex h-full items-center justify-center text-sm text-text-muted">Loading models...</div>
         )}
       </main>
     </div>
@@ -225,13 +272,29 @@ function MetricCard({
   compact?: boolean
 }) {
   return (
-    <div className={`rounded-2xl border border-border bg-surface ${compact ? 'px-4 py-3' : 'px-5 py-4'}`}>
+    <div className={cn('rounded-2xl border border-border bg-surface', compact ? 'px-4 py-3' : 'px-5 py-4')}>
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
         {icon}
         <span>{label}</span>
       </div>
-      <div className={`mt-2 font-semibold text-text ${compact ? 'text-lg' : 'text-2xl'}`}>
+      <div className={cn('mt-2 font-semibold text-text', compact ? 'text-lg' : 'text-2xl')}>
         {loading ? '...' : value}
+      </div>
+    </div>
+  )
+}
+
+function RatioBar({ label, value, percent }: { label: string; value: string; percent: number }) {
+  const clamped = Math.max(0, Math.min(percent, 100))
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="text-text-secondary">{label}</span>
+        <span className="font-semibold text-text">{value}</span>
+      </div>
+      <div className="h-2 rounded-full bg-surface-dim">
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${clamped}%` }} />
       </div>
     </div>
   )

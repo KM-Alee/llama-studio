@@ -1,15 +1,14 @@
 use axum::{
-    Router,
+    Json, Router,
     extract::State,
     routing::{get, post},
-    Json,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::error::{AppError, AppResult};
-use crate::state::AppState;
 use crate::services::llama_process;
+use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -119,9 +118,14 @@ async fn detect_hardware(_state: State<AppState>) -> AppResult<Json<Value>> {
     let mut info = serde_json::Map::new();
 
     // CPU info
-    info.insert("cpu_cores".into(), json!(std::thread::available_parallelism()
-        .map(|p| p.get())
-        .unwrap_or(1)));
+    info.insert(
+        "cpu_cores".into(),
+        json!(
+            std::thread::available_parallelism()
+                .map(|p| p.get())
+                .unwrap_or(1)
+        ),
+    );
 
     // Total system RAM
     #[cfg(target_os = "linux")]
@@ -129,7 +133,10 @@ async fn detect_hardware(_state: State<AppState>) -> AppResult<Json<Value>> {
         if let Ok(meminfo) = tokio::fs::read_to_string("/proc/meminfo").await {
             for line in meminfo.lines() {
                 if let Some(rest) = line.strip_prefix("MemTotal:") {
-                    let kb: u64 = rest.trim().split_whitespace().next()
+                    let kb: u64 = rest
+                        .trim()
+                        .split_whitespace()
+                        .next()
                         .and_then(|s| s.parse().ok())
                         .unwrap_or(0);
                     info.insert("total_ram_bytes".into(), json!(kb * 1024));

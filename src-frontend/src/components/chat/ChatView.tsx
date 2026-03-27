@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent, type DragEvent, type ChangeEvent } from 'react'
 import { ArrowUp, Square, MessageCircle, SlidersHorizontal, FileText, Terminal, RotateCcw, Gauge, Paperclip, X } from 'lucide-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useChatStore, type ChatMessage } from '@/stores/chatStore'
 import { useAppStore } from '@/stores/appStore'
@@ -8,13 +8,11 @@ import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
 import {
   streamChat,
-  getPresets,
   getConversation,
   createConversation,
   addMessage,
   type Message,
   type MessageAttachment,
-  type Preset,
 } from '@/lib/api'
 import { attachmentInputHint, buildMessageForModel, toMessageAttachment } from '@/lib/chatAttachments'
 import { cn } from '@/lib/utils'
@@ -59,11 +57,6 @@ export function ChatView() {
   const serverStatus = useServerStore((s) => s.status)
   const activeModelId = useModelStore((s) => s.activeModelId)
   const profile = useAppStore((s) => s.profile)
-
-  const { data: presetsData } = useQuery({
-    queryKey: ['presets'],
-    queryFn: getPresets,
-  })
 
   // Load conversation + messages when navigating to an existing conversation
   useEffect(() => {
@@ -157,6 +150,8 @@ export function ChatView() {
 
       // Stream the response, passing inference params if in advanced mode
       let fullContent = ''
+      let assistantChunkCount = 0
+      const generationStartedAt = Date.now()
       const chatOptions = profile === 'advanced' ? {
         ...inferenceParams,
         system_prompt: systemPrompt || undefined,
@@ -165,16 +160,17 @@ export function ChatView() {
       for await (const chunk of streamChat(chatMessages, chatOptions, abortRef.current.signal)) {
         fullContent += chunk
         appendStreamContent(chunk)
-        // Rough token counting for speed display (split on whitespace + punctuation boundaries)
+        assistantChunkCount += 1
         setStreamTokenCount((prev) => prev + 1)
       }
 
+      const estimatedTokensUsed = Math.max(assistantChunkCount, Math.ceil(fullContent.length / 4))
       // Save assistant message to backend
       const assistantMsgResponse = await addMessage(convoId, {
         role: 'assistant',
         content: fullContent,
-        tokens_used: Math.max(streamTokenCount, Math.ceil(fullContent.length / 4)),
-        generation_time_ms: streamStartTime ? Date.now() - streamStartTime : undefined,
+        tokens_used: estimatedTokensUsed,
+        generation_time_ms: Date.now() - generationStartedAt,
       })
 
       addLocalMessage({
@@ -194,7 +190,7 @@ export function ChatView() {
       addLocalMessage({
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `⚠️ Error: ${errorMsg}`,
+        content: `Error: ${errorMsg}`,
         attachments: [],
         createdAt: new Date().toISOString(),
         isError: true,
@@ -229,6 +225,8 @@ export function ChatView() {
         .map((m) => ({ role: m.role, content: buildMessageForModel(m) }))
 
       let fullContent = ''
+      let assistantChunkCount = 0
+      const generationStartedAt = Date.now()
       const chatOptions = profile === 'advanced' ? {
         ...inferenceParams,
         system_prompt: systemPrompt || undefined,
@@ -237,16 +235,18 @@ export function ChatView() {
       for await (const chunk of streamChat(chatMessages, chatOptions, abortRef.current.signal)) {
         fullContent += chunk
         appendStreamContent(chunk)
+        assistantChunkCount += 1
         setStreamTokenCount((prev) => prev + 1)
       }
 
       const convoId = activeConversationId
       if (convoId) {
+        const estimatedTokensUsed = Math.max(assistantChunkCount, Math.ceil(fullContent.length / 4))
         const assistantMsgResponse = await addMessage(convoId, {
           role: 'assistant',
           content: fullContent,
-          tokens_used: Math.max(streamTokenCount, Math.ceil(fullContent.length / 4)),
-          generation_time_ms: streamStartTime ? Date.now() - streamStartTime : undefined,
+          tokens_used: estimatedTokensUsed,
+          generation_time_ms: Date.now() - generationStartedAt,
         })
         addLocalMessage({
           id: assistantMsgResponse.id,
@@ -336,39 +336,18 @@ export function ChatView() {
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-5 px-4">
-              <div className="w-16 h-16 rounded-2xl bg-primary/8 border border-primary/15 flex items-center justify-center">
-                <MessageCircle className="w-8 h-8 text-primary/60" />
+              <div className="relative w-16 h-16 rounded-2xl border border-primary/20 bg-primary/12 flex items-center justify-center overflow-hidden">
+                <div className="absolute -top-5 -left-5 h-12 w-12 rounded-full bg-primary/20 blur-md" />
+                <MessageCircle className="relative w-8 h-8 fill-current text-primary" />
               </div>
               <div className="text-center max-w-md">
                 <h2 className="text-lg font-bold text-text mb-2">Start a conversation</h2>
                 <p className="text-sm text-text-muted leading-relaxed">
                   {isServerReady
-                    ? 'Type a message below to begin. Pick a style to set the tone.'
+                    ? 'Type a message below to begin.'
                     : 'Load a model from the Models page to begin chatting.'}
                 </p>
               </div>
-
-              {isServerReady && presetsData?.presets && (
-                <div className="flex flex-wrap gap-2 mt-1 max-w-lg justify-center">
-                  {presetsData.presets.slice(0, 4).map((preset: Preset) => (
-                    <button
-                      key={preset.id}
-                      onClick={() => {
-                        setSelectedPresetId(preset.id)
-                        inputRef.current?.focus()
-                      }}
-                      className={cn(
-                        "px-4 py-2 rounded-xl text-sm font-medium transition-colors",
-                        selectedPresetId === preset.id
-                          ? "bg-primary/10 text-primary border border-primary/30"
-                          : "bg-surface-dim text-text-secondary hover:bg-surface-hover hover:text-text border border-border"
-                      )}
-                    >
-                      {preset.name}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           ) : (
             <div className="max-w-3xl mx-auto py-6 px-6 space-y-5">
@@ -513,11 +492,7 @@ export function ChatView() {
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between mt-2 px-1">
-              <PresetSelector
-                selectedPresetId={selectedPresetId}
-                onSelect={setSelectedPresetId}
-              />
+            <div className="mt-2 flex items-center justify-end px-1">
               {profile === 'advanced' && (
                 <div className="flex items-center gap-1.5 text-xs text-text-muted">
                   <span>{input.length}c / ~{estimatedTokens}t</span>

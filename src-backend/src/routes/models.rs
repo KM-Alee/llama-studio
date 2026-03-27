@@ -1,8 +1,7 @@
 use axum::{
-    Router,
+    Json, Router,
     extract::State,
     routing::{get, post},
-    Json,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -15,8 +14,8 @@ pub fn router() -> Router<AppState> {
         .route("/", get(list_models))
         .route("/scan", post(scan_models))
         .route("/import", post(import_model))
-    .route("/{id}/inspect", get(inspect_model))
-    .route("/{id}/analytics", get(get_model_analytics))
+        .route("/{id}/inspect", get(inspect_model))
+        .route("/{id}/analytics", get(get_model_analytics))
         .route("/{id}", get(get_model).delete(delete_model))
 }
 
@@ -42,26 +41,39 @@ async fn import_model(
 ) -> AppResult<Json<Value>> {
     let source = std::path::Path::new(&body.path);
     if !source.exists() {
-        return Err(AppError::BadRequest(format!("File not found: {}", body.path)));
+        return Err(AppError::BadRequest(format!(
+            "File not found: {}",
+            body.path
+        )));
     }
     if source.extension().and_then(|e| e.to_str()) != Some("gguf") {
-        return Err(AppError::BadRequest("Only .gguf files are supported".into()));
+        return Err(AppError::BadRequest(
+            "Only .gguf files are supported".into(),
+        ));
     }
 
     // Prevent path traversal — resolve to canonical path
-    let canonical = source.canonicalize()
+    let canonical = source
+        .canonicalize()
         .map_err(|e| AppError::BadRequest(format!("Invalid path: {}", e)))?;
     let path_str = canonical.to_string_lossy().to_string();
 
     // Check if model is already registered
-    if state.db.model_exists_by_path(&path_str).await.unwrap_or(false) {
+    if state
+        .db
+        .model_exists_by_path(&path_str)
+        .await
+        .unwrap_or(false)
+    {
         return Err(AppError::BadRequest("Model already imported".into()));
     }
 
-    let metadata = tokio::fs::metadata(&canonical).await
+    let metadata = tokio::fs::metadata(&canonical)
+        .await
         .map_err(|e| AppError::Internal(anyhow::anyhow!("Cannot read file: {}", e)))?;
 
-    let name = canonical.file_stem()
+    let name = canonical
+        .file_stem()
         .map(|s| s.to_string_lossy().to_string())
         .unwrap_or_default();
 
@@ -95,7 +107,10 @@ async fn inspect_model(
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> AppResult<Json<Value>> {
     let mut model = state.models.get(&id).await?;
-    let inspection = state.inspector.inspect(std::path::Path::new(&model.path)).await
+    let inspection = state
+        .inspector
+        .inspect(std::path::Path::new(&model.path))
+        .await
         .map_err(AppError::Internal)?;
 
     if model.architecture.as_deref() != inspection.architecture.as_deref() {
@@ -114,7 +129,11 @@ async fn inspect_model(
             .map(|value| value.split(" - ").next().unwrap_or(value).to_string());
     }
 
-    state.db.upsert_model(&model).await.map_err(AppError::Internal)?;
+    state
+        .db
+        .upsert_model(&model)
+        .await
+        .map_err(AppError::Internal)?;
 
     Ok(Json(json!({
         "model": model,
@@ -126,7 +145,10 @@ async fn get_model_analytics(
     State(state): State<AppState>,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> AppResult<Json<Value>> {
-    let analytics = state.db.get_model_analytics(&id).await
+    let analytics = state
+        .db
+        .get_model_analytics(&id)
+        .await
         .map_err(AppError::Internal)?;
     Ok(Json(json!({ "analytics": analytics })))
 }

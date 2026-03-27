@@ -4,11 +4,15 @@ use serde_json::Value;
 use std::sync::Mutex;
 
 use crate::services::model_registry::{Model, ModelAnalytics, ModelConversationSummary};
-use crate::services::session_manager::{Conversation, Message, MessageAttachment};
 use crate::services::preset_manager::Preset;
+use crate::services::session_manager::{Conversation, Message, MessageAttachment};
 
 /// Current schema version for migration tracking.
 const SCHEMA_VERSION: u32 = 2;
+
+fn estimate_tokens_from_content(content: &str) -> u64 {
+    ((content.chars().count() as f64) / 4.0).ceil() as u64
+}
 
 /// SQLite database wrapper with synchronous rusqlite behind a Mutex.
 /// All public methods are async for compatibility with Axum handlers.
@@ -31,7 +35,9 @@ impl Database {
         let conn = Connection::open(&db_path)?;
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
 
-        let db = Self { conn: Mutex::new(conn) };
+        let db = Self {
+            conn: Mutex::new(conn),
+        };
         db.run_migrations()?;
         Ok(db)
     }
@@ -41,11 +47,15 @@ impl Database {
 
         // Bootstrap the schema_version table
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);"
+            "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);",
         )?;
 
         let current: u32 = conn
-            .query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |r| r.get(0))
+            .query_row(
+                "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+                [],
+                |r| r.get(0),
+            )
             .unwrap_or(0);
 
         if current < 1 {
@@ -115,7 +125,7 @@ impl Database {
                 "
                 ALTER TABLE messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]';
                 INSERT INTO schema_version (version) VALUES (2);
-                "
+                ",
             )?;
             tracing::info!("Database migrated to schema version 2");
         }
@@ -163,20 +173,23 @@ impl Database {
     pub async fn list_models(&self) -> Result<Vec<Model>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT * FROM models ORDER BY name")?;
-        let models = stmt.query_map([], |row| {
-            Ok(Model {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                path: row.get(2)?,
-                size_bytes: row.get(3)?,
-                quantization: row.get(4)?,
-                architecture: row.get(5)?,
-                parameters: row.get(6)?,
-                context_length: row.get(7)?,
-                added_at: row.get(8)?,
-                last_used: row.get(9)?,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let models = stmt
+            .query_map([], |row| {
+                Ok(Model {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    path: row.get(2)?,
+                    size_bytes: row.get(3)?,
+                    quantization: row.get(4)?,
+                    architecture: row.get(5)?,
+                    parameters: row.get(6)?,
+                    context_length: row.get(7)?,
+                    added_at: row.get(8)?,
+                    last_used: row.get(9)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
         Ok(models)
     }
 
@@ -196,24 +209,20 @@ impl Database {
 
     pub async fn get_model(&self, id: &str) -> Result<Model> {
         let conn = self.conn.lock().unwrap();
-        let model = conn.query_row(
-            "SELECT * FROM models WHERE id = ?1",
-            [id],
-            |row| {
-                Ok(Model {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    path: row.get(2)?,
-                    size_bytes: row.get(3)?,
-                    quantization: row.get(4)?,
-                    architecture: row.get(5)?,
-                    parameters: row.get(6)?,
-                    context_length: row.get(7)?,
-                    added_at: row.get(8)?,
-                    last_used: row.get(9)?,
-                })
-            },
-        )?;
+        let model = conn.query_row("SELECT * FROM models WHERE id = ?1", [id], |row| {
+            Ok(Model {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                path: row.get(2)?,
+                size_bytes: row.get(3)?,
+                quantization: row.get(4)?,
+                architecture: row.get(5)?,
+                parameters: row.get(6)?,
+                context_length: row.get(7)?,
+                added_at: row.get(8)?,
+                last_used: row.get(9)?,
+            })
+        })?;
         Ok(model)
     }
 
@@ -225,11 +234,10 @@ impl Database {
 
     pub async fn model_exists_by_path(&self, path: &str) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
-        let count: u32 = conn.query_row(
-            "SELECT COUNT(*) FROM models WHERE path = ?1",
-            [path],
-            |r| r.get(0),
-        )?;
+        let count: u32 =
+            conn.query_row("SELECT COUNT(*) FROM models WHERE path = ?1", [path], |r| {
+                r.get(0)
+            })?;
         Ok(count > 0)
     }
 
@@ -238,17 +246,20 @@ impl Database {
     pub async fn list_conversations(&self) -> Result<Vec<Conversation>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT id, title, model_id, preset_id, system_prompt, created_at, updated_at FROM conversations ORDER BY updated_at DESC")?;
-        let convos = stmt.query_map([], |row| {
-            Ok(Conversation {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                model_id: row.get(2)?,
-                preset_id: row.get(3)?,
-                system_prompt: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let convos = stmt
+            .query_map([], |row| {
+                Ok(Conversation {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    model_id: row.get(2)?,
+                    preset_id: row.get(3)?,
+                    system_prompt: row.get(4)?,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
         Ok(convos)
     }
 
@@ -314,20 +325,23 @@ impl Database {
         let mut stmt = conn.prepare(
             "SELECT id, conversation_id, role, content, attachments_json, tokens_used, generation_time_ms, created_at FROM messages WHERE conversation_id = ?1 ORDER BY created_at"
         )?;
-        let messages = stmt.query_map([conversation_id], |row| {
-            let attachments_json: String = row.get(4)?;
-            Ok(Message {
-                id: row.get(0)?,
-                conversation_id: row.get(1)?,
-                role: row.get(2)?,
-                content: row.get(3)?,
-                attachments: serde_json::from_str::<Vec<MessageAttachment>>(&attachments_json)
-                    .unwrap_or_default(),
-                tokens_used: row.get(5)?,
-                generation_time_ms: row.get(6)?,
-                created_at: row.get(7)?,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let messages = stmt
+            .query_map([conversation_id], |row| {
+                let attachments_json: String = row.get(4)?;
+                Ok(Message {
+                    id: row.get(0)?,
+                    conversation_id: row.get(1)?,
+                    role: row.get(2)?,
+                    content: row.get(3)?,
+                    attachments: serde_json::from_str::<Vec<MessageAttachment>>(&attachments_json)
+                        .unwrap_or_default(),
+                    tokens_used: row.get(5)?,
+                    generation_time_ms: row.get(6)?,
+                    created_at: row.get(7)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
         Ok(messages)
     }
 
@@ -358,7 +372,10 @@ impl Database {
         Ok(())
     }
 
-    pub async fn touch_model_last_used_for_conversation(&self, conversation_id: &str) -> Result<()> {
+    pub async fn touch_model_last_used_for_conversation(
+        &self,
+        conversation_id: &str,
+    ) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "UPDATE models
@@ -373,7 +390,7 @@ impl Database {
         let model = self.get_model(model_id).await?;
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT c.id, c.title, c.updated_at, m.role, m.tokens_used, m.generation_time_ms, m.attachments_json
+            "SELECT c.id, c.title, c.updated_at, m.role, m.tokens_used, m.generation_time_ms, m.attachments_json, m.content
              FROM conversations c
              LEFT JOIN messages m ON m.conversation_id = c.id
              WHERE c.model_id = ?1
@@ -399,6 +416,7 @@ impl Database {
             let tokens_used: Option<u32> = row.get(4)?;
             let generation_time_ms: Option<u64> = row.get(5)?;
             let attachments_json: Option<String> = row.get(6)?;
+            let content: Option<String> = row.get(7)?;
 
             if current_conversation_id.as_deref() != Some(conversation_id.as_str()) {
                 if let Some(summary) = current_conversation.take() {
@@ -436,7 +454,12 @@ impl Database {
 
                 if role == "assistant" {
                     assistant_message_count += 1;
-                    let token_count = u64::from(tokens_used.unwrap_or(0));
+                    let token_count = tokens_used.map(u64::from).unwrap_or_else(|| {
+                        content
+                            .as_deref()
+                            .map(estimate_tokens_from_content)
+                            .unwrap_or(0)
+                    });
                     let generation_ms = generation_time_ms.unwrap_or(0);
                     total_tokens += token_count;
                     total_generation_time_ms += generation_ms;
@@ -494,19 +517,23 @@ impl Database {
     pub async fn list_presets(&self) -> Result<Vec<Preset>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare("SELECT id, name, description, profile, parameters, system_prompt, is_builtin FROM presets ORDER BY is_builtin DESC, name")?;
-        let presets = stmt.query_map([], |row| {
-            let params_str: String = row.get(4)?;
-            let parameters = serde_json::from_str(&params_str).unwrap_or(Value::Object(Default::default()));
-            Ok(Preset {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                description: row.get(2)?,
-                profile: row.get(3)?,
-                parameters,
-                system_prompt: row.get(5)?,
-                is_builtin: row.get::<_, i32>(6)? != 0,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let presets = stmt
+            .query_map([], |row| {
+                let params_str: String = row.get(4)?;
+                let parameters =
+                    serde_json::from_str(&params_str).unwrap_or(Value::Object(Default::default()));
+                Ok(Preset {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    profile: row.get(3)?,
+                    parameters,
+                    system_prompt: row.get(5)?,
+                    is_builtin: row.get::<_, i32>(6)? != 0,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
         Ok(presets)
     }
 
@@ -550,16 +577,28 @@ impl Database {
             let conn = self.conn.lock().unwrap();
             if let Some(obj) = updates.as_object() {
                 if let Some(name) = obj.get("name").and_then(|v| v.as_str()) {
-                    conn.execute("UPDATE presets SET name = ?1 WHERE id = ?2 AND is_builtin = 0", rusqlite::params![name, id])?;
+                    conn.execute(
+                        "UPDATE presets SET name = ?1 WHERE id = ?2 AND is_builtin = 0",
+                        rusqlite::params![name, id],
+                    )?;
                 }
                 if let Some(desc) = obj.get("description").and_then(|v| v.as_str()) {
-                    conn.execute("UPDATE presets SET description = ?1 WHERE id = ?2 AND is_builtin = 0", rusqlite::params![desc, id])?;
+                    conn.execute(
+                        "UPDATE presets SET description = ?1 WHERE id = ?2 AND is_builtin = 0",
+                        rusqlite::params![desc, id],
+                    )?;
                 }
                 if let Some(params) = obj.get("parameters") {
-                    conn.execute("UPDATE presets SET parameters = ?1 WHERE id = ?2 AND is_builtin = 0", rusqlite::params![params.to_string(), id])?;
+                    conn.execute(
+                        "UPDATE presets SET parameters = ?1 WHERE id = ?2 AND is_builtin = 0",
+                        rusqlite::params![params.to_string(), id],
+                    )?;
                 }
                 if let Some(sp) = obj.get("system_prompt").and_then(|v| v.as_str()) {
-                    conn.execute("UPDATE presets SET system_prompt = ?1 WHERE id = ?2 AND is_builtin = 0", rusqlite::params![sp, id])?;
+                    conn.execute(
+                        "UPDATE presets SET system_prompt = ?1 WHERE id = ?2 AND is_builtin = 0",
+                        rusqlite::params![sp, id],
+                    )?;
                 }
             }
         }
@@ -586,17 +625,20 @@ impl Database {
              ORDER BY c.updated_at DESC
              LIMIT 50"
         )?;
-        let convos = stmt.query_map([&pattern], |row| {
-            Ok(Conversation {
-                id: row.get(0)?,
-                title: row.get(1)?,
-                model_id: row.get(2)?,
-                preset_id: row.get(3)?,
-                system_prompt: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-            })
-        })?.filter_map(|r| r.ok()).collect();
+        let convos = stmt
+            .query_map([&pattern], |row| {
+                Ok(Conversation {
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    model_id: row.get(2)?,
+                    preset_id: row.get(3)?,
+                    system_prompt: row.get(4)?,
+                    created_at: row.get(5)?,
+                    updated_at: row.get(6)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
         Ok(convos)
     }
 

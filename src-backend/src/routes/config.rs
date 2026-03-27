@@ -1,17 +1,11 @@
-use axum::{
-    Router,
-    extract::State,
-    routing::get,
-    Json,
-};
+use axum::{Json, Router, extract::State, routing::get};
 use serde_json::{Value, json};
 
 use crate::error::AppResult;
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/", get(get_config).put(update_config))
+    Router::new().route("/", get(get_config).put(update_config))
 }
 
 async fn get_config(State(state): State<AppState>) -> AppResult<Json<Value>> {

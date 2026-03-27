@@ -651,7 +651,7 @@ function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }:
   )
 }
 
-function ModelDetailPanel({ model, isActive, onClose, onLoad, serverStatus }: {
+function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, serverStatus }: {
   model: ModelDetail; isActive: boolean
   onClose: () => void; onLoad: () => void; onOpenAnalytics: () => void; serverStatus: string
 }) {

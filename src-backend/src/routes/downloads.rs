@@ -1,8 +1,7 @@
 use axum::{
-    Router,
+    Json, Router,
     extract::State,
     routing::{get, post},
-    Json,
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -41,15 +40,17 @@ async fn start_download(
     }
 
     // Validate URL
-    let url_parsed = url::Url::parse(&body.url)
-        .map_err(|_| AppError::BadRequest("Invalid URL".into()))?;
+    let url_parsed =
+        url::Url::parse(&body.url).map_err(|_| AppError::BadRequest("Invalid URL".into()))?;
 
     match url_parsed.scheme() {
         "https" => {}
         "http" => {
             let host = url_parsed.host_str().unwrap_or("");
             if !host.ends_with("huggingface.co") {
-                return Err(AppError::BadRequest("Only HTTPS URLs are allowed (except huggingface.co)".into()));
+                return Err(AppError::BadRequest(
+                    "Only HTTPS URLs are allowed (except huggingface.co)".into(),
+                ));
             }
         }
         _ => return Err(AppError::BadRequest("Only HTTP(S) URLs are allowed".into())),
@@ -57,13 +58,28 @@ async fn start_download(
 
     // Block internal/private network addresses
     if let Some(host) = url_parsed.host_str() {
-        let blocked = ["localhost", "127.0.0.1", "0.0.0.0", "::1", "169.254.169.254"];
-        if blocked.contains(&host) || host.starts_with("10.") || host.starts_with("192.168.") || host.starts_with("172.") {
-            return Err(AppError::BadRequest("Internal network addresses are not allowed".into()));
+        let blocked = [
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0",
+            "::1",
+            "169.254.169.254",
+        ];
+        if blocked.contains(&host)
+            || host.starts_with("10.")
+            || host.starts_with("192.168.")
+            || host.starts_with("172.")
+        {
+            return Err(AppError::BadRequest(
+                "Internal network addresses are not allowed".into(),
+            ));
         }
     }
 
-    let id = state.downloads.start_download(body.url, body.filename).await
+    let id = state
+        .downloads
+        .start_download(body.url, body.filename)
+        .await
         .map_err(AppError::Internal)?;
 
     Ok(Json(json!({ "id": id })))
@@ -73,7 +89,10 @@ async fn cancel_download(
     State(state): State<AppState>,
     axum::extract::Path(id): axum::extract::Path<String>,
 ) -> AppResult<Json<Value>> {
-    state.downloads.cancel(&id).await
+    state
+        .downloads
+        .cancel(&id)
+        .await
         .map_err(AppError::Internal)?;
     Ok(Json(json!({ "cancelled": true })))
 }

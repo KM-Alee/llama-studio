@@ -31,18 +31,26 @@ impl IntoResponse for AppError {
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::Internal(e) => {
                 tracing::error!("Internal error: {:?}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal server error".to_string(),
+                )
             }
             AppError::Database(e) => {
                 tracing::error!("Database error: {:?}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string())
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error".to_string(),
+                )
             }
-            AppError::ServerNotRunning => {
-                (StatusCode::SERVICE_UNAVAILABLE, "llama.cpp server is not running".to_string())
-            }
-            AppError::ServerAlreadyRunning => {
-                (StatusCode::CONFLICT, "llama.cpp server is already running".to_string())
-            }
+            AppError::ServerNotRunning => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "llama.cpp server is not running".to_string(),
+            ),
+            AppError::ServerAlreadyRunning => (
+                StatusCode::CONFLICT,
+                "llama.cpp server is already running".to_string(),
+            ),
         };
 
         let body = json!({ "error": message });

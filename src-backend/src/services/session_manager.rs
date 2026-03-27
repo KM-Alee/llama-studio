@@ -1,10 +1,10 @@
-use std::sync::Arc;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::Arc;
 
 use crate::db::Database;
-use crate::routes::conversations::{CreateConversation, AddMessage};
+use crate::routes::conversations::{AddMessage, CreateConversation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conversation {
@@ -93,7 +93,9 @@ impl SessionManager {
             created_at: chrono::Utc::now().to_rfc3339(),
         };
         self.db.insert_message(&msg).await?;
-        self.db.touch_model_last_used_for_conversation(conversation_id).await?;
+        self.db
+            .touch_model_last_used_for_conversation(conversation_id)
+            .await?;
         Ok(msg)
     }
 

@@ -28,7 +28,10 @@ impl AppState {
     pub async fn new() -> Result<Self> {
         let db = Arc::new(Database::new().await?);
         let config = Arc::new(ConfigStore::new(db.clone()).await?);
-        let llama = Arc::new(RwLock::new(LlamaProcessManager::new(config.clone(), db.clone())));
+        let llama = Arc::new(RwLock::new(LlamaProcessManager::new(
+            config.clone(),
+            db.clone(),
+        )));
         let models = Arc::new(ModelRegistry::new(db.clone(), config.clone()));
         let inspector = Arc::new(ModelInspector::new(config.clone()));
         let sessions = Arc::new(SessionManager::new(db.clone()));

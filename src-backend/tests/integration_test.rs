@@ -11,7 +11,7 @@ use axum::{
     http::{Request, StatusCode},
     routing::get,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tower::ServiceExt;
 
 // Re-use the application's modules
@@ -21,7 +21,9 @@ use ai_studio_backend::state::AppState;
 
 /// Build the full application router (mirrors main.rs) for test use.
 async fn build_test_app() -> Router {
-    let state = AppState::new().await.expect("Failed to initialize test AppState");
+    let state = AppState::new()
+        .await
+        .expect("Failed to initialize test AppState");
 
     Router::new()
         .route("/api/v1/health", get(routes::health::health_check))
@@ -38,14 +40,13 @@ async fn build_test_app() -> Router {
 
 /// Helper: send a GET request and return (status, body).
 async fn get_json(app: &Router, uri: &str) -> (StatusCode, Value) {
-    let req = Request::builder()
-        .uri(uri)
-        .body(Body::empty())
-        .unwrap();
+    let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
 
     let response = app.clone().oneshot(req).await.unwrap();
     let status = response.status();
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
     (status, json)
 }
@@ -61,7 +62,9 @@ async fn post_json(app: &Router, uri: &str, body: Value) -> (StatusCode, Value) 
 
     let response = app.clone().oneshot(req).await.unwrap();
     let status = response.status();
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     (status, json)
 }
@@ -76,7 +79,9 @@ async fn delete_json(app: &Router, uri: &str) -> (StatusCode, Value) {
 
     let response = app.clone().oneshot(req).await.unwrap();
     let status = response.status();
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     (status, json)
 }
@@ -92,7 +97,9 @@ async fn put_json(app: &Router, uri: &str, body: Value) -> (StatusCode, Value) {
 
     let response = app.clone().oneshot(req).await.unwrap();
     let status = response.status();
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     (status, json)
 }
@@ -134,7 +141,8 @@ async fn chat_completions_fails_when_server_not_running() {
             "messages": [{"role": "user", "content": "Hello"}],
             "stream": true,
         }),
-    ).await;
+    )
+    .await;
 
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert!(body["error"].as_str().unwrap().contains("not running"));
@@ -162,7 +170,8 @@ async fn conversation_create_and_get() {
         &app,
         "/api/v1/conversations",
         json!({ "title": "Test Chat" }),
-    ).await;
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(convo["title"], "Test Chat");
     let convo_id = convo["id"].as_str().unwrap();
@@ -183,7 +192,8 @@ async fn conversation_add_message_and_retrieve() {
         &app,
         "/api/v1/conversations",
         json!({ "title": "Message Test" }),
-    ).await;
+    )
+    .await;
     let convo_id = convo["id"].as_str().unwrap();
 
     // Add message
@@ -191,7 +201,8 @@ async fn conversation_add_message_and_retrieve() {
         &app,
         &format!("/api/v1/conversations/{}/messages", convo_id),
         json!({ "role": "user", "content": "Hello, world!" }),
-    ).await;
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(msg["role"], "user");
     assert_eq!(msg["content"], "Hello, world!");
@@ -200,7 +211,8 @@ async fn conversation_add_message_and_retrieve() {
     let (status, body) = get_json(
         &app,
         &format!("/api/v1/conversations/{}/messages", convo_id),
-    ).await;
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     let messages = body["messages"].as_array().unwrap();
     assert_eq!(messages.len(), 1);
@@ -215,7 +227,8 @@ async fn conversation_delete() {
         &app,
         "/api/v1/conversations",
         json!({ "title": "To Delete" }),
-    ).await;
+    )
+    .await;
     let convo_id = convo["id"].as_str().unwrap();
 
     let (status, _) = delete_json(&app, &format!("/api/v1/conversations/{}", convo_id)).await;
@@ -260,7 +273,8 @@ async fn start_server_with_missing_model_returns_starting() {
         &app,
         "/api/v1/server/start",
         json!({ "model_id": "/nonexistent/model.gguf" }),
-    ).await;
+    )
+    .await;
 
     // Either starting (spawn succeeded but process will die) or error (spawn failed)
     assert!(
@@ -278,12 +292,15 @@ async fn import_model_rejects_nonexistent_path() {
         &app,
         "/api/v1/models/import",
         json!({ "path": "/nonexistent/model.gguf" }),
-    ).await;
+    )
+    .await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body["error"].as_str().unwrap().contains("not found") ||
-            body["error"].as_str().unwrap().contains("Not found") ||
-            body["error"].as_str().unwrap().contains("File not found"));
+    assert!(
+        body["error"].as_str().unwrap().contains("not found")
+            || body["error"].as_str().unwrap().contains("Not found")
+            || body["error"].as_str().unwrap().contains("File not found")
+    );
 }
 
 #[tokio::test]
@@ -297,7 +314,8 @@ async fn import_model_rejects_non_gguf_file() {
         &app,
         "/api/v1/models/import",
         json!({ "path": tmp.to_string_lossy() }),
-    ).await;
+    )
+    .await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(body["error"].as_str().unwrap().contains("gguf"));
@@ -316,7 +334,8 @@ async fn import_model_accepts_valid_gguf() {
         &app,
         "/api/v1/models/import",
         json!({ "path": tmp.to_string_lossy() }),
-    ).await;
+    )
+    .await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(body["id"].is_string());
@@ -341,7 +360,8 @@ async fn download_start_rejects_invalid_filename() {
         &app,
         "/api/v1/downloads/start",
         json!({ "url": "https://example.com/model.gguf", "filename": "../evil.gguf" }),
-    ).await;
+    )
+    .await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(body["error"].as_str().unwrap().contains("Invalid"));
@@ -354,7 +374,8 @@ async fn download_start_rejects_non_gguf_filename() {
         &app,
         "/api/v1/downloads/start",
         json!({ "url": "https://example.com/model.bin", "filename": "model.bin" }),
-    ).await;
+    )
+    .await;
 
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(body["error"].as_str().unwrap().contains("gguf"));
@@ -370,7 +391,8 @@ async fn config_update_and_read_back() {
         &app,
         "/api/v1/config",
         json!({ "context_size": 8192, "gpu_layers": 32 }),
-    ).await;
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
 
     let (status, body) = get_json(&app, "/api/v1/config").await;
@@ -411,7 +433,8 @@ async fn server_flags_set_and_get() {
         &app,
         "/api/v1/server/flags",
         json!({ "flags": ["--mlock", "--no-mmap"] }),
-    ).await;
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["flags"].as_array().unwrap().len(), 2);
 }
@@ -454,7 +477,8 @@ async fn chat_with_params_fails_when_server_not_running() {
             "top_p": 0.9,
             "system_prompt": "You are helpful"
         }),
-    ).await;
+    )
+    .await;
 
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert!(body["error"].as_str().unwrap().contains("not running"));
@@ -471,7 +495,8 @@ async fn search_conversations_returns_results() {
         &app,
         "/api/v1/conversations",
         json!({ "title": "Unique Quantum Physics Discussion" }),
-    ).await;
+    )
+    .await;
     let convo_id = convo["id"].as_str().unwrap();
 
     // Add a message with searchable content
@@ -479,19 +504,26 @@ async fn search_conversations_returns_results() {
         &app,
         &format!("/api/v1/conversations/{}/messages", convo_id),
         json!({ "role": "user", "content": "Tell me about quantum entanglement" }),
-    ).await;
+    )
+    .await;
 
     // Search by title
     let (status, body) = get_json(&app, "/api/v1/conversations/search?q=Quantum").await;
     assert_eq!(status, StatusCode::OK);
     let results = body["conversations"].as_array().unwrap();
-    assert!(!results.is_empty(), "Expected to find conversation by title");
+    assert!(
+        !results.is_empty(),
+        "Expected to find conversation by title"
+    );
 
     // Search by message content
     let (status, body) = get_json(&app, "/api/v1/conversations/search?q=entanglement").await;
     assert_eq!(status, StatusCode::OK);
     let results = body["conversations"].as_array().unwrap();
-    assert!(!results.is_empty(), "Expected to find conversation by message content");
+    assert!(
+        !results.is_empty(),
+        "Expected to find conversation by message content"
+    );
 }
 
 #[tokio::test]
@@ -512,16 +544,22 @@ async fn export_conversation_json() {
         &app,
         "/api/v1/conversations",
         json!({ "title": "Export Test" }),
-    ).await;
+    )
+    .await;
     let convo_id = convo["id"].as_str().unwrap();
 
     post_json(
         &app,
         &format!("/api/v1/conversations/{}/messages", convo_id),
         json!({ "role": "user", "content": "Hello export" }),
-    ).await;
+    )
+    .await;
 
-    let (status, body) = get_json(&app, &format!("/api/v1/conversations/{}/export/json", convo_id)).await;
+    let (status, body) = get_json(
+        &app,
+        &format!("/api/v1/conversations/{}/export/json", convo_id),
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["conversation"]["title"], "Export Test");
     assert_eq!(body["messages"][0]["content"], "Hello export");
@@ -535,23 +573,30 @@ async fn export_conversation_markdown() {
         &app,
         "/api/v1/conversations",
         json!({ "title": "MD Export" }),
-    ).await;
+    )
+    .await;
     let convo_id = convo["id"].as_str().unwrap();
 
     post_json(
         &app,
         &format!("/api/v1/conversations/{}/messages", convo_id),
         json!({ "role": "user", "content": "Markdown test content" }),
-    ).await;
+    )
+    .await;
 
     // The markdown export returns a plain string, not JSON
     let req = Request::builder()
-        .uri(&format!("/api/v1/conversations/{}/export/markdown", convo_id))
+        .uri(&format!(
+            "/api/v1/conversations/{}/export/markdown",
+            convo_id
+        ))
         .body(Body::empty())
         .unwrap();
     let response = app.clone().oneshot(req).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK);
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let md = String::from_utf8_lossy(&bytes);
     assert!(md.contains("# MD Export"));
     assert!(md.contains("Markdown test content"));
@@ -567,27 +612,31 @@ async fn fork_conversation_copies_messages() {
         &app,
         "/api/v1/conversations",
         json!({ "title": "Fork Source" }),
-    ).await;
+    )
+    .await;
     let convo_id = convo["id"].as_str().unwrap();
 
     post_json(
         &app,
         &format!("/api/v1/conversations/{}/messages", convo_id),
         json!({ "role": "user", "content": "First message" }),
-    ).await;
+    )
+    .await;
 
     post_json(
         &app,
         &format!("/api/v1/conversations/{}/messages", convo_id),
         json!({ "role": "assistant", "content": "Response" }),
-    ).await;
+    )
+    .await;
 
     // Fork the conversation
     let (status, forked) = post_json(
         &app,
         &format!("/api/v1/conversations/{}/fork", convo_id),
         json!({}),
-    ).await;
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     assert!(forked["title"].as_str().unwrap().contains("(fork)"));
     let forked_id = forked["id"].as_str().unwrap();
@@ -596,7 +645,8 @@ async fn fork_conversation_copies_messages() {
     let (status, body) = get_json(
         &app,
         &format!("/api/v1/conversations/{}/messages", forked_id),
-    ).await;
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     let msgs = body["messages"].as_array().unwrap();
     assert_eq!(msgs.len(), 2);

@@ -1,9 +1,4 @@
-use axum::{
-    Router,
-    extract::Query,
-    routing::get,
-    Json,
-};
+use axum::{Json, Router, extract::Query, routing::get};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -67,17 +62,29 @@ async fn get_model_files(
             if !filename.ends_with(".gguf") {
                 return None;
             }
-            let size = sibling.get("size")
+            let size = sibling
+                .get("size")
                 .and_then(|v| v.as_u64())
-                .or_else(|| sibling.get("lfs").and_then(|value| value.get("size")).and_then(|v| v.as_u64()))
+                .or_else(|| {
+                    sibling
+                        .get("lfs")
+                        .and_then(|value| value.get("size"))
+                        .and_then(|v| v.as_u64())
+                })
                 .unwrap_or(0);
             Some(json!({ "filename": filename, "size": size }))
         })
         .collect();
 
     files.sort_by(|left, right| {
-        let left_size = left.get("size").and_then(|value| value.as_u64()).unwrap_or(0);
-        let right_size = right.get("size").and_then(|value| value.as_u64()).unwrap_or(0);
+        let left_size = left
+            .get("size")
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0);
+        let right_size = right
+            .get("size")
+            .and_then(|value| value.as_u64())
+            .unwrap_or(0);
         right_size.cmp(&left_size)
     });
 
@@ -108,7 +115,8 @@ async fn search_models(Query(params): Query<SearchQuery>) -> AppResult<Json<Valu
         .build()
         .map_err(|e| AppError::Internal(anyhow::anyhow!("HTTP client error: {}", e)))?;
 
-    let response = client.get(&url)
+    let response = client
+        .get(&url)
         .header("User-Agent", "Llama-Studio/0.1")
         .send()
         .await
@@ -121,22 +129,27 @@ async fn search_models(Query(params): Query<SearchQuery>) -> AppResult<Json<Valu
         )));
     }
 
-    let models: Vec<Value> = response.json().await
+    let models: Vec<Value> = response
+        .json()
+        .await
         .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to parse HF response: {}", e)))?;
 
     // Extract relevant fields for each model
-    let results: Vec<Value> = models.iter().map(|m| {
-        let id = m.get("id").and_then(|v| v.as_str()).unwrap_or("");
-        json!({
-            "id": id,
-            "name": id.rsplit('/').next().unwrap_or(id),
-            "author": m.get("author").and_then(|v| v.as_str()).unwrap_or(""),
-            "downloads": m.get("downloads").and_then(|v| v.as_u64()).unwrap_or(0),
-            "likes": m.get("likes").and_then(|v| v.as_u64()).unwrap_or(0),
-            "tags": m.get("tags").unwrap_or(&json!([])),
-            "last_modified": m.get("lastModified").and_then(|v| v.as_str()).unwrap_or(""),
+    let results: Vec<Value> = models
+        .iter()
+        .map(|m| {
+            let id = m.get("id").and_then(|v| v.as_str()).unwrap_or("");
+            json!({
+                "id": id,
+                "name": id.rsplit('/').next().unwrap_or(id),
+                "author": m.get("author").and_then(|v| v.as_str()).unwrap_or(""),
+                "downloads": m.get("downloads").and_then(|v| v.as_u64()).unwrap_or(0),
+                "likes": m.get("likes").and_then(|v| v.as_u64()).unwrap_or(0),
+                "tags": m.get("tags").unwrap_or(&json!([])),
+                "last_modified": m.get("lastModified").and_then(|v| v.as_str()).unwrap_or(""),
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(Json(json!({ "models": results })))
 }

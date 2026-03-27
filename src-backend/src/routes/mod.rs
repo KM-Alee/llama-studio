@@ -1,11 +1,11 @@
-pub mod health;
-pub mod models;
-pub mod server;
 pub mod chat;
-pub mod conversations;
-pub mod presets;
 pub mod config;
+pub mod conversations;
 pub mod downloads;
+pub mod health;
 pub mod huggingface;
+pub mod models;
+pub mod presets;
+pub mod server;
 pub mod static_files;
 pub mod ws;

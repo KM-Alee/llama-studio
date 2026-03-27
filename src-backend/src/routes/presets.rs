@@ -1,8 +1,7 @@
 use axum::{
-    Router,
-    extract::{State, Path},
+    Json, Router,
+    extract::{Path, State},
     routing::get,
-    Json,
 };
 use serde_json::{Value, json};
 
@@ -12,7 +11,10 @@ use crate::state::AppState;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/", get(list_presets).post(create_preset))
-        .route("/{id}", get(get_preset).put(update_preset).delete(delete_preset))
+        .route(
+            "/{id}",
+            get(get_preset).put(update_preset).delete(delete_preset),
+        )
 }
 
 async fn list_presets(State(state): State<AppState>) -> AppResult<Json<Value>> {

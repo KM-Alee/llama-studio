@@ -1,6 +1,6 @@
+use std::convert::Infallible;
 use std::process::Stdio;
 use std::sync::Arc;
-use std::convert::Infallible;
 
 use anyhow::Result;
 use axum::response::sse::Event;
@@ -123,8 +123,14 @@ impl LlamaProcessManager {
     /// Validate a CLI flag to prevent injection of dangerous arguments.
     fn validate_flag(flag: &str) -> bool {
         let dangerous = [
-            "--api-key", "--api-key-file", "--log-file", "--log-prefix",
-            "-o", "--output", "--ssl-key-file", "--ssl-cert-file",
+            "--api-key",
+            "--api-key-file",
+            "--log-file",
+            "--log-prefix",
+            "-o",
+            "--output",
+            "--ssl-key-file",
+            "--ssl-cert-file",
         ];
         let lower = flag.to_lowercase();
         !dangerous.iter().any(|d| lower.starts_with(d))
@@ -132,7 +138,9 @@ impl LlamaProcessManager {
 
     /// Resolve model_id to a filesystem path by looking it up in the database.
     async fn resolve_model_path(&self, model_id: &str) -> AppResult<String> {
-        self.db.get_model(model_id).await
+        self.db
+            .get_model(model_id)
+            .await
             .map(|model| model.path)
             .map_err(|_| AppError::NotFound(format!("Model not found: {}", model_id)))
     }
@@ -146,8 +154,7 @@ impl LlamaProcessManager {
         self.logs.lock().unwrap().clear();
 
         let model_path = self.resolve_model_path(model_id).await?;
-        let config = self.config.get_all().await
-            .map_err(AppError::Internal)?;
+        let config = self.config.get_all().await.map_err(AppError::Internal)?;
 
         let llama_path = if config.llama_cpp_path.is_empty() {
             "llama-server".to_string()
@@ -156,11 +163,16 @@ impl LlamaProcessManager {
         };
 
         let mut cmd = Command::new(&llama_path);
-        cmd.arg("-m").arg(&model_path)
-            .arg("--port").arg(config.llama_server_port.to_string())
-            .arg("--host").arg("127.0.0.1")
-            .arg("-c").arg(config.context_size.to_string())
-            .arg("-ngl").arg(config.gpu_layers.to_string())
+        cmd.arg("-m")
+            .arg(&model_path)
+            .arg("--port")
+            .arg(config.llama_server_port.to_string())
+            .arg("--host")
+            .arg("127.0.0.1")
+            .arg("-c")
+            .arg(config.context_size.to_string())
+            .arg("-ngl")
+            .arg(config.gpu_layers.to_string())
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
 
@@ -184,7 +196,8 @@ impl LlamaProcessManager {
             cmd.arg("--rope-freq-base").arg(rope_freq_base.to_string());
         }
         if let Some(rope_freq_scale) = config.rope_freq_scale {
-            cmd.arg("--rope-freq-scale").arg(rope_freq_scale.to_string());
+            cmd.arg("--rope-freq-scale")
+                .arg(rope_freq_scale.to_string());
         }
         if let Some(mmap) = config.mmap {
             cmd.arg(if mmap { "--mmap" } else { "--no-mmap" });
@@ -193,7 +206,11 @@ impl LlamaProcessManager {
             cmd.arg("--mlock");
         }
         if let Some(cont_batching) = config.cont_batching {
-            cmd.arg(if cont_batching { "--cont-batching" } else { "--no-cont-batching" });
+            cmd.arg(if cont_batching {
+                "--cont-batching"
+            } else {
+                "--no-cont-batching"
+            });
         }
 
         // Apply custom CLI flags stored for advanced mode
@@ -213,7 +230,10 @@ impl LlamaProcessManager {
             }
         }
 
-        self.push_log(format!("Starting llama.cpp: {} -m {}", llama_path, model_path));
+        self.push_log(format!(
+            "Starting llama.cpp: {} -m {}",
+            llama_path, model_path
+        ));
         tracing::info!(model = %model_path, binary = %llama_path, "Spawning llama.cpp server");
 
         match cmd.spawn() {
@@ -248,7 +268,10 @@ impl LlamaProcessManager {
             }
             Err(e) => {
                 self.status = ServerStatus::Error;
-                Err(AppError::Internal(anyhow::anyhow!("Failed to start llama.cpp: {}", e)))
+                Err(AppError::Internal(anyhow::anyhow!(
+                    "Failed to start llama.cpp: {}",
+                    e
+                )))
             }
         }
     }
@@ -304,9 +327,7 @@ impl LlamaProcessManager {
 
 /// Poll llama.cpp's /health endpoint until it returns ok.
 /// Updates the process manager status via the shared RwLock.
-pub async fn poll_health_until_ready(
-    llama: Arc<tokio::sync::RwLock<LlamaProcessManager>>,
-) {
+pub async fn poll_health_until_ready(llama: Arc<tokio::sync::RwLock<LlamaProcessManager>>) {
     let port = {
         let mgr = llama.read().await;
         mgr.port().await
@@ -364,49 +385,49 @@ pub async fn poll_health_until_ready(
     mgr.mark_error();
 }
 
-    /// Monitor a running llama.cpp process and transition to Error if it exits unexpectedly.
-    /// Spawn this alongside `poll_health_until_ready` from the start-server handler.
-    pub async fn monitor_for_exit(llama: Arc<tokio::sync::RwLock<LlamaProcessManager>>) {
-        // First wait until the server enters Running state (or bail on any terminal state).
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(EXIT_MONITOR_INTERVAL_MS)).await;
-            let status = {
-                let mgr = llama.read().await;
-                mgr.current_status().clone()
-            };
-            match status {
-                ServerStatus::Running => break,
-                ServerStatus::Stopped | ServerStatus::Error | ServerStatus::Stopping => return,
-                ServerStatus::Starting => {}
-            }
-        }
-
-        // Periodically check whether the child is still alive.
-        loop {
-            tokio::time::sleep(std::time::Duration::from_millis(EXIT_MONITOR_INTERVAL_MS)).await;
-            let mut mgr = llama.write().await;
-            if mgr.status != ServerStatus::Running {
-                return;
-            }
-            if let Some(child) = &mut mgr.child {
-                match child.try_wait() {
-                    Ok(Some(exit_status)) => {
-                        let code = exit_status.code().unwrap_or(-1);
-                        let msg = format!("llama.cpp exited unexpectedly (code {code})");
-                        tracing::error!(%msg);
-                        mgr.push_log(msg);
-                        mgr.status = ServerStatus::Error;
-                        mgr.child = None;
-                        return;
-                    }
-                    Ok(None) => {} // still alive
-                    Err(e) => tracing::warn!(err = %e, "Could not poll child exit status"),
-                }
-            } else {
-                return;
-            }
+/// Monitor a running llama.cpp process and transition to Error if it exits unexpectedly.
+/// Spawn this alongside `poll_health_until_ready` from the start-server handler.
+pub async fn monitor_for_exit(llama: Arc<tokio::sync::RwLock<LlamaProcessManager>>) {
+    // First wait until the server enters Running state (or bail on any terminal state).
+    loop {
+        tokio::time::sleep(std::time::Duration::from_millis(EXIT_MONITOR_INTERVAL_MS)).await;
+        let status = {
+            let mgr = llama.read().await;
+            mgr.current_status().clone()
+        };
+        match status {
+            ServerStatus::Running => break,
+            ServerStatus::Stopped | ServerStatus::Error | ServerStatus::Stopping => return,
+            ServerStatus::Starting => {}
         }
     }
+
+    // Periodically check whether the child is still alive.
+    loop {
+        tokio::time::sleep(std::time::Duration::from_millis(EXIT_MONITOR_INTERVAL_MS)).await;
+        let mut mgr = llama.write().await;
+        if mgr.status != ServerStatus::Running {
+            return;
+        }
+        if let Some(child) = &mut mgr.child {
+            match child.try_wait() {
+                Ok(Some(exit_status)) => {
+                    let code = exit_status.code().unwrap_or(-1);
+                    let msg = format!("llama.cpp exited unexpectedly (code {code})");
+                    tracing::error!(%msg);
+                    mgr.push_log(msg);
+                    mgr.status = ServerStatus::Error;
+                    mgr.child = None;
+                    return;
+                }
+                Ok(None) => {} // still alive
+                Err(e) => tracing::warn!(err = %e, "Could not poll child exit status"),
+            }
+        } else {
+            return;
+        }
+    }
+}
 
 /// Creates a chat completion SSE stream by proxying to llama.cpp.
 /// Properly parses llama.cpp's SSE output and re-emits clean SSE events.
@@ -432,30 +453,59 @@ pub async fn create_chat_stream(
 
     // Forward optional inference parameters to llama.cpp
     let obj = body.as_object_mut().unwrap();
-    if let Some(v) = req.temperature { obj.insert("temperature".into(), v.into()); }
-    if let Some(v) = req.top_p { obj.insert("top_p".into(), v.into()); }
-    if let Some(v) = req.top_k { obj.insert("top_k".into(), v.into()); }
-    if let Some(v) = req.repeat_penalty { obj.insert("repeat_penalty".into(), v.into()); }
-    if let Some(v) = req.max_tokens { obj.insert("max_tokens".into(), v.into()); }
-    if let Some(ref v) = req.stop { obj.insert("stop".into(), serde_json::json!(v)); }
-    if let Some(v) = req.frequency_penalty { obj.insert("frequency_penalty".into(), v.into()); }
-    if let Some(v) = req.presence_penalty { obj.insert("presence_penalty".into(), v.into()); }
-    if let Some(v) = req.seed { obj.insert("seed".into(), v.into()); }
-    if let Some(ref v) = req.grammar { obj.insert("grammar".into(), v.clone().into()); }
-    if let Some(v) = req.min_p { obj.insert("min_p".into(), v.into()); }
-    if let Some(v) = req.typical_p { obj.insert("typical_p".into(), v.into()); }
-    if let Some(v) = req.mirostat { obj.insert("mirostat".into(), v.into()); }
-    if let Some(v) = req.mirostat_tau { obj.insert("mirostat_tau".into(), v.into()); }
-    if let Some(v) = req.mirostat_eta { obj.insert("mirostat_eta".into(), v.into()); }
-    if let Some(v) = req.tfs_z { obj.insert("tfs_z".into(), v.into()); }
+    if let Some(v) = req.temperature {
+        obj.insert("temperature".into(), v.into());
+    }
+    if let Some(v) = req.top_p {
+        obj.insert("top_p".into(), v.into());
+    }
+    if let Some(v) = req.top_k {
+        obj.insert("top_k".into(), v.into());
+    }
+    if let Some(v) = req.repeat_penalty {
+        obj.insert("repeat_penalty".into(), v.into());
+    }
+    if let Some(v) = req.max_tokens {
+        obj.insert("max_tokens".into(), v.into());
+    }
+    if let Some(ref v) = req.stop {
+        obj.insert("stop".into(), serde_json::json!(v));
+    }
+    if let Some(v) = req.frequency_penalty {
+        obj.insert("frequency_penalty".into(), v.into());
+    }
+    if let Some(v) = req.presence_penalty {
+        obj.insert("presence_penalty".into(), v.into());
+    }
+    if let Some(v) = req.seed {
+        obj.insert("seed".into(), v.into());
+    }
+    if let Some(ref v) = req.grammar {
+        obj.insert("grammar".into(), v.clone().into());
+    }
+    if let Some(v) = req.min_p {
+        obj.insert("min_p".into(), v.into());
+    }
+    if let Some(v) = req.typical_p {
+        obj.insert("typical_p".into(), v.into());
+    }
+    if let Some(v) = req.mirostat {
+        obj.insert("mirostat".into(), v.into());
+    }
+    if let Some(v) = req.mirostat_tau {
+        obj.insert("mirostat_tau".into(), v.into());
+    }
+    if let Some(v) = req.mirostat_eta {
+        obj.insert("mirostat_eta".into(), v.into());
+    }
+    if let Some(v) = req.tfs_z {
+        obj.insert("tfs_z".into(), v.into());
+    }
 
     let client = reqwest::Client::new();
-    let response = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| AppError::Internal(anyhow::anyhow!("Failed to connect to llama.cpp: {}", e)))?;
+    let response = client.post(&url).json(&body).send().await.map_err(|e| {
+        AppError::Internal(anyhow::anyhow!("Failed to connect to llama.cpp: {}", e))
+    })?;
 
     let byte_stream = response.bytes_stream();
 
@@ -464,33 +514,30 @@ pub async fn create_chat_stream(
     // llama.cpp sends SSE-formatted lines: "data: {...}\n\n"
     // We need to parse each line, extract the JSON, and re-emit as proper Axum SSE events.
     let event_stream = byte_stream
-        .map(|chunk| {
-            match chunk {
-                Ok(bytes) => {
-                    let text = String::from_utf8_lossy(&bytes);
-                    let mut events = Vec::new();
+        .map(|chunk| match chunk {
+            Ok(bytes) => {
+                let text = String::from_utf8_lossy(&bytes);
+                let mut events = Vec::new();
 
-                    for line in text.lines() {
-                        let line = line.trim();
-                        if line.is_empty() {
-                            continue;
-                        }
-                        if let Some(data) = line.strip_prefix("data: ") {
-                            if data == "[DONE]" {
-                                events.push(Ok(Event::default().data("[DONE]")));
-                            } else {
-                                events.push(Ok(Event::default().data(data.to_string())));
-                            }
+                for line in text.lines() {
+                    let line = line.trim();
+                    if line.is_empty() {
+                        continue;
+                    }
+                    if let Some(data) = line.strip_prefix("data: ") {
+                        if data == "[DONE]" {
+                            events.push(Ok(Event::default().data("[DONE]")));
+                        } else {
+                            events.push(Ok(Event::default().data(data.to_string())));
                         }
                     }
+                }
 
-                    futures::stream::iter(events)
-                }
-                Err(e) => {
-                    let err_event = Event::default()
-                        .data(format!("{{\"error\": \"{}\"}}", e));
-                    futures::stream::iter(vec![Ok(err_event)])
-                }
+                futures::stream::iter(events)
+            }
+            Err(e) => {
+                let err_event = Event::default().data(format!("{{\"error\": \"{}\"}}", e));
+                futures::stream::iter(vec![Ok(err_event)])
             }
         })
         .flatten();

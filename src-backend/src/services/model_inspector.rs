@@ -78,12 +78,18 @@ impl ModelInspector {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 
-        let mut child = child.spawn().map_err(|error| {
-            anyhow!("Failed to run {}: {}", binary.display(), error)
-        })?;
+        let mut child = child
+            .spawn()
+            .map_err(|error| anyhow!("Failed to run {}: {}", binary.display(), error))?;
 
-        let stdout = child.stdout.take().ok_or_else(|| anyhow!("Missing stdout pipe"))?;
-        let stderr = child.stderr.take().ok_or_else(|| anyhow!("Missing stderr pipe"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| anyhow!("Missing stdout pipe"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| anyhow!("Missing stderr pipe"))?;
 
         let (tx, mut rx) = mpsc::channel(256);
         let stdout_task = tokio::spawn(read_lines(stdout, tx.clone()));
@@ -201,7 +207,11 @@ fn parse_line(line: &str, inspection: &mut ModelInspection) {
         if key.ends_with(".context_length") && inspection.context_length.is_none() {
             inspection.context_length = value.parse::<u32>().ok();
         }
-        inspection.metadata.push(ModelMetadataEntry { key, value_type, value });
+        inspection.metadata.push(ModelMetadataEntry {
+            key,
+            value_type,
+            value,
+        });
         return;
     }
 

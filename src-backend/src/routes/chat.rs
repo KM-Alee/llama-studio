@@ -1,9 +1,8 @@
 use axum::{
-    Router,
+    Json, Router,
     extract::State,
     response::sse::{Event, Sse},
     routing::post,
-    Json,
 };
 use futures::stream::Stream;
 use serde::Deserialize;
@@ -11,12 +10,11 @@ use serde_json::Value;
 use std::convert::Infallible;
 
 use crate::error::AppResult;
-use crate::state::AppState;
 use crate::services::llama_process::ServerStatus;
+use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/completions", post(chat_completions))
+    Router::new().route("/completions", post(chat_completions))
 }
 
 #[derive(Debug, Deserialize)]
@@ -50,7 +48,9 @@ pub struct ChatMessage {
     pub content: String,
 }
 
-fn default_stream() -> bool { true }
+fn default_stream() -> bool {
+    true
+}
 
 async fn chat_completions(
     State(state): State<AppState>,
@@ -58,16 +58,21 @@ async fn chat_completions(
 ) -> AppResult<Sse<impl Stream<Item = Result<Event, Infallible>>>> {
     // Validate input
     if req.messages.is_empty() {
-        return Err(crate::error::AppError::BadRequest("Messages cannot be empty".into()));
+        return Err(crate::error::AppError::BadRequest(
+            "Messages cannot be empty".into(),
+        ));
     }
 
     // Validate role values
     for msg in &req.messages {
         match msg.role.as_str() {
             "system" | "user" | "assistant" => {}
-            _ => return Err(crate::error::AppError::BadRequest(
-                format!("Invalid message role: {}", msg.role)
-            )),
+            _ => {
+                return Err(crate::error::AppError::BadRequest(format!(
+                    "Invalid message role: {}",
+                    msg.role
+                )));
+            }
         }
     }
 
@@ -75,7 +80,7 @@ async fn chat_completions(
     if let Some(temp) = req.temperature {
         if !(0.0..=2.0).contains(&temp) {
             return Err(crate::error::AppError::BadRequest(
-                "Temperature must be between 0.0 and 2.0".into()
+                "Temperature must be between 0.0 and 2.0".into(),
             ));
         }
     }
@@ -84,7 +89,7 @@ async fn chat_completions(
     if let Some(top_p) = req.top_p {
         if !(0.0..=1.0).contains(&top_p) {
             return Err(crate::error::AppError::BadRequest(
-                "top_p must be between 0.0 and 1.0".into()
+                "top_p must be between 0.0 and 1.0".into(),
             ));
         }
     }
@@ -93,7 +98,7 @@ async fn chat_completions(
     if let Some(max_tokens) = req.max_tokens {
         if max_tokens < 1 {
             return Err(crate::error::AppError::BadRequest(
-                "max_tokens must be positive".into()
+                "max_tokens must be positive".into(),
             ));
         }
     }

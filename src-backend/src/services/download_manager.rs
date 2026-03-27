@@ -93,7 +93,9 @@ impl DownloadManager {
         let task_id = id.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = run_download(task_id.clone(), url, dest, downloads.clone(), tx.clone()).await {
+            if let Err(e) =
+                run_download(task_id.clone(), url, dest, downloads.clone(), tx.clone()).await
+            {
                 let mut downloads = downloads.lock().await;
                 if let Some(dl) = downloads.get_mut(&task_id) {
                     dl.status = DownloadStatus::Failed;

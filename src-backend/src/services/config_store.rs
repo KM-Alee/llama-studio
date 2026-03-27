@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::Arc;
 
 use crate::db::Database;
 
@@ -100,7 +100,9 @@ impl ConfigStore {
         let mut config = self.config.write().await;
         // Merge updates into existing config
         let mut current = serde_json::to_value(&*config)?;
-        if let (Some(current_obj), Some(updates_obj)) = (current.as_object_mut(), updates.as_object()) {
+        if let (Some(current_obj), Some(updates_obj)) =
+            (current.as_object_mut(), updates.as_object())
+        {
             for (key, value) in updates_obj {
                 current_obj.insert(key.clone(), value.clone());
             }

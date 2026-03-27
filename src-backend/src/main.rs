@@ -1,11 +1,8 @@
 use anyhow::Result;
-use axum::{
-    Router,
-    routing::get,
-};
+use axum::http::HeaderValue;
+use axum::{Router, routing::get};
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
-use axum::http::HeaderValue;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -21,9 +18,10 @@ use state::AppState;
 async fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::registry()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-            "ai_studio_backend=debug,tower_http=debug".into()
-        }))
+        .with(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "ai_studio_backend=debug,tower_http=debug".into()),
+        )
         .with(tracing_subscriber::fmt::layer())
         .init();
 
@@ -59,10 +57,7 @@ async fn main() -> Result<()> {
                     axum::http::Method::DELETE,
                     axum::http::Method::OPTIONS,
                 ])
-                .allow_headers([
-                    axum::http::header::CONTENT_TYPE,
-                    axum::http::header::ACCEPT,
-                ]),
+                .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::ACCEPT]),
         )
         .with_state(state);
 

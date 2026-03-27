@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Save, Cpu, HardDrive, Info, Zap } from 'lucide-react'
+import { Save, Cpu, HardDrive, Info, Microchip, Gauge, Rocket } from 'lucide-react'
 import { getConfig, updateConfig, detectHardware, getServerFlags, setServerFlags } from '@/lib/api'
 import { useAppStore, type Theme } from '@/stores/appStore'
 import { useState, useEffect } from 'react'
@@ -54,10 +54,10 @@ function Toggle({ checked, onChange, label, description }: {
 
 // Quick presets for common hardware configurations
 const HARDWARE_PRESETS = [
-  { name: 'CPU Only', icon: '🖥️', desc: 'No GPU acceleration', config: { gpu_layers: 0, threads: 0, flash_attention: false, mmap: true, mlock: false } },
-  { name: 'Low VRAM', icon: '📊', desc: '4-6 GB GPU', config: { gpu_layers: 20, threads: 0, flash_attention: true, mmap: true, mlock: false } },
-  { name: 'Mid VRAM', icon: '⚡', desc: '8-12 GB GPU', config: { gpu_layers: -1, threads: 0, flash_attention: true, mmap: true, mlock: false } },
-  { name: 'High VRAM', icon: '🚀', desc: '16+ GB GPU', config: { gpu_layers: -1, threads: 0, flash_attention: true, mmap: false, mlock: true, cont_batching: true } },
+  { name: 'CPU Only', icon: Cpu, desc: 'No GPU acceleration', config: { gpu_layers: 0, threads: 0, flash_attention: false, mmap: true, mlock: false } },
+  { name: 'Low VRAM', icon: Microchip, desc: '4-6 GB GPU', config: { gpu_layers: 20, threads: 0, flash_attention: true, mmap: true, mlock: false } },
+  { name: 'Mid VRAM', icon: Gauge, desc: '8-12 GB GPU', config: { gpu_layers: -1, threads: 0, flash_attention: true, mmap: true, mlock: false } },
+  { name: 'High VRAM', icon: Rocket, desc: '16+ GB GPU', config: { gpu_layers: -1, threads: 0, flash_attention: true, mmap: false, mlock: true, cont_batching: true } },
 ]
 
 export function SettingsPage() {
@@ -221,7 +221,9 @@ export function SettingsPage() {
                 onClick={() => applyPreset(preset)}
                 className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-surface-hover hover:border-primary/30 text-left transition-colors"
               >
-                <span className="text-lg">{preset.icon}</span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface border border-border">
+                  <preset.icon className="h-4 w-4 text-text-secondary" />
+                </div>
                 <div>
                   <div className="text-sm font-semibold text-text">{preset.name}</div>
                   <div className="text-xs text-text-muted">{preset.desc}</div>
