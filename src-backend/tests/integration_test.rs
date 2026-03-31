@@ -646,3 +646,110 @@ async fn fork_conversation_copies_messages() {
     assert_eq!(msgs[0]["content"], "First message");
     assert_eq!(msgs[1]["content"], "Response");
 }
+
+// === Phase 7: Message Deletion ===
+
+#[tokio::test]
+async fn delete_message_removes_it_from_conversation() {
+    let app = build_test_app().await;
+
+    let (_, convo) = post_json(
+        &app,
+        "/api/v1/conversations",
+        json!({ "title": "Msg Delete Test" }),
+    )
+    .await;
+    let convo_id = convo["id"].as_str().unwrap();
+
+    let (_, msg) = post_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages", convo_id),
+        json!({ "role": "user", "content": "To be deleted" }),
+    )
+    .await;
+    let msg_id = msg["id"].as_str().unwrap();
+
+    // Delete the message via the dedicated endpoint.
+    let (status, body) = delete_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages/{}", convo_id, msg_id),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["deleted"], true);
+
+    // Verify the message is gone.
+    let (status, body) = get_json(
+        &app,
+        &format!("/api/v1/conversations/{}/messages", convo_id),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let msgs = body["messages"].as_array().unwrap();
+    assert!(msgs.is_empty(), "expected 0 messages, got {}", msgs.len());
+}
+
+// === Phase 8: Config Validation ===
+
+#[tokio::test]
+async fn config_rejects_invalid_port() {
+    let app = build_test_app().await;
+
+    // Port 80 is below the 1024 threshold.
+    let (status, body) = put_json(&app, "/api/v1/config", json!({ "app_port": 80 })).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(
+        body["error"].as_str().unwrap_or("").contains("app_port"),
+        "expected validation message about app_port"
+    );
+}
+
+#[tokio::test]
+async fn config_rejects_zero_context_size() {
+    let app = build_test_app().await;
+
+    let (status, body) = put_json(&app, "/api/v1/config", json!({ "context_size": 0 })).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("context_size")
+    );
+}
+
+#[tokio::test]
+async fn config_rejects_same_ports() {
+    let app = build_test_app().await;
+
+    // Both ports identical → validation must fail.
+    let (status, body) = put_json(
+        &app,
+        "/api/v1/config",
+        json!({ "app_port": 8080, "llama_server_port": 8080 }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(body["error"].as_str().unwrap_or("").contains("different"));
+}
+
+// === Phase 9: Recursive Model Scan ===
+
+#[tokio::test]
+async fn scan_models_handles_nonexistent_directory() {
+    let app = build_test_app().await;
+
+    // Update config to point to a directory that does not exist.
+    let (status, _) = put_json(
+        &app,
+        "/api/v1/config",
+        json!({ "models_directory": "/nonexistent/models/path/xyz" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    // Scan should return 0 rather than an error.
+    let (status, body) = post_json(&app, "/api/v1/models/scan", json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["scanned"], 0);
+}

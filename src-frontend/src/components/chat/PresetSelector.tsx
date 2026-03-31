@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Sliders, ChevronDown } from 'lucide-react'
 import { getPresets, type Preset } from '@/lib/api'
@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 
 interface Props {
   selectedPresetId: string | null
-  onSelect: (presetId: string | null) => void
+  onSelect: (preset: Preset | null) => void
 }
 
 export function PresetSelector({ selectedPresetId, onSelect }: Props) {
@@ -19,15 +19,15 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
   })
 
   const presets = data?.presets ?? []
-  const selectedPreset = presets.find((p: Preset) => p.id === selectedPresetId)
+  const selectedPreset = presets.find((preset: Preset) => preset.id === selectedPresetId)
 
-  // Close on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    const handler = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
         setOpen(false)
       }
     }
+
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
@@ -36,7 +36,7 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-text-secondary hover:bg-surface-hover border border-border transition-colors h-8"
+        className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-hover"
       >
         <Sliders className="w-3.5 h-3.5" />
         <span className="max-w-[60px] truncate">{selectedPreset ? selectedPreset.name : 'Default'}</span>
@@ -44,7 +44,7 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 mb-1.5 w-60 bg-surface border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute bottom-full left-0 z-50 mb-1.5 w-60 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
           <div className="py-1">
             <button
               onClick={() => {
@@ -55,29 +55,29 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
                 'w-full px-4 py-2.5 text-left text-sm transition-colors',
                 !selectedPresetId
                   ? 'bg-primary/10 text-primary'
-                  : 'hover:bg-surface-hover text-text-secondary'
+                  : 'text-text-secondary hover:bg-surface-hover',
               )}
             >
               <div className="font-medium">Default</div>
-              <p className="text-xs text-text-muted mt-0.5">Standard settings</p>
+              <p className="mt-0.5 text-xs text-text-muted">Standard settings</p>
             </button>
             {presets.map((preset: Preset) => (
               <button
                 key={preset.id}
                 onClick={() => {
-                  onSelect(preset.id)
+                  onSelect(preset)
                   setOpen(false)
                 }}
                 className={cn(
                   'w-full px-4 py-2.5 text-left text-sm transition-colors',
                   selectedPresetId === preset.id
                     ? 'bg-primary/10 text-primary'
-                    : 'hover:bg-surface-hover text-text-secondary'
+                    : 'text-text-secondary hover:bg-surface-hover',
                 )}
               >
                 <div className="font-medium">{preset.name}</div>
                 {preset.description && (
-                  <p className="text-xs text-text-muted mt-0.5 line-clamp-1">
+                  <p className="mt-0.5 line-clamp-1 text-xs text-text-muted">
                     {preset.description}
                   </p>
                 )}

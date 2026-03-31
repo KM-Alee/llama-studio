@@ -14,22 +14,17 @@ export function Layout() {
   const commandPaletteOpen = useAppStore((s) => s.commandPaletteOpen)
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen)
 
-  // Establish WebSocket for real-time server status updates
   useWebSocket()
-
-  // Apply theme (dark/light/system) to the document
   useTheme()
-
-  // Register global keyboard shortcuts
   useKeyboardShortcuts()
 
   return (
-    <div className="flex h-screen bg-surface text-text overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-surface text-text">
       <Sidebar />
       <div
         className={cn(
-          'flex flex-col flex-1 min-w-0 transition-all duration-200',
-          sidebarOpen ? 'ml-72' : 'ml-0'
+          'flex min-w-0 flex-1 flex-col transition-all duration-200',
+          sidebarOpen ? 'ml-72' : 'ml-0',
         )}
       >
         <TopBar />
@@ -38,10 +33,12 @@ export function Layout() {
         </main>
         <StatusBar />
       </div>
-      <CommandPalette
-        open={commandPaletteOpen}
-        onClose={() => setCommandPaletteOpen(false)}
-      />
+      {commandPaletteOpen && (
+        <CommandPalette
+          open={commandPaletteOpen}
+          onClose={() => setCommandPaletteOpen(false)}
+        />
+      )}
     </div>
   )
 }

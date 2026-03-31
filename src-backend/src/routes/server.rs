@@ -134,7 +134,6 @@ async fn detect_hardware(_state: State<AppState>) -> AppResult<Json<Value>> {
             for line in meminfo.lines() {
                 if let Some(rest) = line.strip_prefix("MemTotal:") {
                     let kb: u64 = rest
-                        .trim()
                         .split_whitespace()
                         .next()
                         .and_then(|s| s.parse().ok())

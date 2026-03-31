@@ -107,6 +107,13 @@ impl SessionManager {
         self.db.delete_conversation(id).await
     }
 
+    /// Delete a single message from a conversation.
+    pub async fn delete_message(&self, conversation_id: &str, msg_id: &str) -> Result<()> {
+        // Verify conversation exists before deleting message.
+        let _ = self.db.get_conversation(conversation_id).await?;
+        self.db.delete_message(msg_id).await
+    }
+
     /// Fork a conversation — creates a copy with all messages up to (and including)
     /// the given message_id. If no message_id is provided, copies everything.
     pub async fn fork(&self, id: &str, after_message_id: Option<&str>) -> Result<Value> {
@@ -141,10 +148,10 @@ impl SessionManager {
             };
             self.db.insert_message(&new_msg).await?;
 
-            if let Some(cutoff) = after_message_id {
-                if msg.id == cutoff {
-                    break;
-                }
+            if let Some(cutoff) = after_message_id
+                && msg.id == cutoff
+            {
+                break;
             }
         }
 

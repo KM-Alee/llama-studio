@@ -16,13 +16,12 @@ import { useChatStore } from '@/stores/chatStore'
 export function useKeyboardShortcuts() {
   const navigate = useNavigate()
   const toggleSidebar = useAppStore((s) => s.toggleSidebar)
-  const setStreaming = useChatStore((s) => s.setStreaming)
+  const cancelStreaming = useChatStore((s) => s.cancelStreaming)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey
 
-      // Ctrl+Shift+N: New chat
       if (ctrl && e.shiftKey && e.key === 'N') {
         e.preventDefault()
         useChatStore.getState().setActiveConversation(null)
@@ -31,36 +30,31 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Ctrl+Shift+S: Toggle sidebar
       if (ctrl && e.shiftKey && e.key === 'S') {
         e.preventDefault()
         toggleSidebar()
         return
       }
 
-      // Ctrl+Shift+P or Ctrl+K: Command palette
-      if ((ctrl && e.shiftKey && e.key === 'P') || (ctrl && e.key === 'k')) {
+      if ((ctrl && e.shiftKey && e.key === 'P') || (ctrl && e.key.toLowerCase() === 'k')) {
         e.preventDefault()
         const store = useAppStore.getState()
         store.setCommandPaletteOpen(!store.commandPaletteOpen)
         return
       }
 
-      // Ctrl+Shift+M: Models page
       if (ctrl && e.shiftKey && e.key === 'M') {
         e.preventDefault()
         navigate('/models')
         return
       }
 
-      // Ctrl+,: Settings
       if (ctrl && e.key === ',') {
         e.preventDefault()
         navigate('/settings')
         return
       }
 
-      // Escape: Cancel streaming or close palette
       if (e.key === 'Escape') {
         const appStore = useAppStore.getState()
         if (appStore.commandPaletteOpen) {
@@ -68,16 +62,15 @@ export function useKeyboardShortcuts() {
           appStore.setCommandPaletteOpen(false)
           return
         }
-        const store = useChatStore.getState()
-        if (store.isStreaming) {
+
+        if (useChatStore.getState().isStreaming) {
           e.preventDefault()
-          setStreaming(false)
+          cancelStreaming()
         }
-        return
       }
     }
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [navigate, toggleSidebar, setStreaming])
+  }, [cancelStreaming, navigate, toggleSidebar])
 }

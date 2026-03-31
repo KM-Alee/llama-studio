@@ -1,7 +1,18 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent, type DragEvent, type ChangeEvent } from 'react'
-import { ArrowUp, Square, MessageCircle, SlidersHorizontal, FileText, Terminal, RotateCcw, Gauge, Paperclip, X } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
+import {
+  ArrowUp,
+  Square,
+  MessageCircle,
+  SlidersHorizontal,
+  FileText,
+  Terminal,
+  RotateCcw,
+  Gauge,
+  Paperclip,
+  X,
+} from 'lucide-react'
 import { useChatStore, type ChatMessage } from '@/stores/chatStore'
 import { useAppStore } from '@/stores/appStore'
 import { useModelStore } from '@/stores/modelStore'
@@ -11,8 +22,11 @@ import {
   getConversation,
   createConversation,
   addMessage,
+  deleteMessage,
+  getPresets,
   type Message,
   type MessageAttachment,
+  type Preset,
 } from '@/lib/api'
 import { attachmentInputHint, buildMessageForModel, toMessageAttachment } from '@/lib/chatAttachments'
 import { cn } from '@/lib/utils'
@@ -24,6 +38,36 @@ import { SystemPromptEditor } from './SystemPromptEditor'
 import { LogViewer } from './LogViewer'
 
 type SidePanel = 'params' | 'system-prompt' | 'logs' | null
+
+function estimateTokensFromText(content: string): number {
+  return Math.max(1, Math.ceil(content.length / 4))
+}
+
+function toChatMessage(message: Message): ChatMessage {
+  return {
+    id: message.id,
+    role: message.role as 'user' | 'assistant' | 'system',
+    content: message.content,
+    attachments: message.attachments ?? [],
+    createdAt: message.created_at,
+    tokensUsed: message.tokens_used ?? undefined,
+    generationTimeMs: message.generation_time_ms ?? undefined,
+  }
+}
+
+function normalizePresetParameters(parameters: Record<string, unknown>): Partial<InferenceParams> {
+  const next: Partial<InferenceParams> = {}
+  const keys = Object.keys(DEFAULT_PARAMS) as Array<keyof InferenceParams>
+
+  for (const key of keys) {
+    const value = parameters[key]
+    if (typeof value === 'number') {
+      next[key] = value
+    }
+  }
+
+  return next
+}
 
 export function ChatView() {
   const { conversationId } = useParams<{ conversationId?: string }>()
@@ -54,246 +98,285 @@ export function ChatView() {
   const streamingContent = useChatStore((s) => s.streamingContent)
   const appendStreamContent = useChatStore((s) => s.appendStreamContent)
   const clearStreamContent = useChatStore((s) => s.clearStreamContent)
+  const registerAbortStreaming = useChatStore((s) => s.registerAbortStreaming)
+  const cancelStreaming = useChatStore((s) => s.cancelStreaming)
   const serverStatus = useServerStore((s) => s.status)
   const activeModelId = useModelStore((s) => s.activeModelId)
   const profile = useAppStore((s) => s.profile)
 
-  // Load conversation + messages when navigating to an existing conversation
+  const { data: conversationData, isLoading: conversationLoading, isError: conversationLoadFailed } = useQuery({
+    queryKey: ['conversation', conversationId],
+    queryFn: () => getConversation(conversationId!),
+    enabled: Boolean(conversationId),
+  })
+
+  const { data: presetsData } = useQuery({
+    queryKey: ['presets'],
+    queryFn: getPresets,
+  })
+
+  const presets = presetsData?.presets ?? []
+  const selectedPreset = presets.find((preset) => preset.id === selectedPresetId) ?? null
+
   useEffect(() => {
-    if (conversationId && conversationId !== activeConversationId) {
-      setActiveConversation(conversationId)
-      getConversation(conversationId).then((data) => {
-        const msgs = data.messages.map((m: Message) => ({
-          id: m.id,
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content,
-          attachments: m.attachments ?? [],
-          createdAt: m.created_at,
-          tokensUsed: m.tokens_used ?? undefined,
-          generationTimeMs: m.generation_time_ms ?? undefined,
-        }))
-        setMessages(msgs)
-      }).catch(() => {
-        // Conversation not found — reset
-        setMessages([])
-        setActiveConversation(null)
-      })
-    } else if (!conversationId) {
-      // New chat — clear state
+    if (!conversationId) {
       setActiveConversation(null)
       setMessages([])
+      setSelectedPresetId(null)
+      setSystemPrompt('')
+      return
     }
-  }, [conversationId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (conversationData) {
+      setActiveConversation(conversationId)
+      setMessages(conversationData.messages.map(toChatMessage))
+      setSelectedPresetId(conversationData.conversation.preset_id)
+      setSystemPrompt(conversationData.conversation.system_prompt ?? '')
+    }
+  }, [conversationData, conversationId, setActiveConversation, setMessages])
+
+  useEffect(() => {
+    if (conversationId && conversationLoadFailed) {
+      setMessages([])
+      setActiveConversation(null)
+    }
+  }, [conversationId, conversationLoadFailed, setActiveConversation, setMessages])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
 
-  // Streaming speed calculation
   const tokensPerSecond = streamStartTime && streamTokenCount > 0
     ? (streamTokenCount / ((Date.now() - streamStartTime) / 1000)).toFixed(1)
     : null
+
+  const attachAbortController = (controller: AbortController | null) => {
+    abortRef.current = controller
+    registerAbortStreaming(controller ? () => controller.abort() : null)
+  }
+
+  const beginStreaming = () => {
+    setStreaming(true)
+    clearStreamContent()
+    setStreamStartTime(Date.now())
+    setStreamTokenCount(0)
+  }
+
+  const finishStreaming = () => {
+    attachAbortController(null)
+    setStreaming(false)
+    clearStreamContent()
+    setStreamStartTime(null)
+    setStreamTokenCount(0)
+  }
+
+  const buildChatMessages = (sourceMessages: ChatMessage[]) =>
+    sourceMessages
+      .filter((message) => !message.isError)
+      .map((message) => ({
+        role: message.role,
+        content: buildMessageForModel(message),
+      }))
+
+  const buildChatOptions = () => {
+    const presetParameters = selectedPreset ? normalizePresetParameters(selectedPreset.parameters) : {}
+    const options: Record<string, unknown> = profile === 'advanced'
+      ? {
+          ...presetParameters,
+          ...inferenceParams,
+        }
+      : {
+          ...presetParameters,
+        }
+
+    const prompt = systemPrompt || selectedPreset?.system_prompt || undefined
+    if (prompt) {
+      options.system_prompt = prompt
+    }
+
+    return Object.keys(options).length > 0 ? options : undefined
+  }
+
+  const streamAssistantReply = async (
+    conversation: string,
+    chatMessages: { role: string; content: string }[],
+  ) => {
+    let fullContent = ''
+    const generationStartedAt = Date.now()
+    const controller = new AbortController()
+    attachAbortController(controller)
+
+    for await (const chunk of streamChat(chatMessages, buildChatOptions(), controller.signal)) {
+      fullContent += chunk
+      appendStreamContent(chunk)
+      setStreamTokenCount((currentCount) => currentCount + estimateTokensFromText(chunk))
+    }
+
+    const assistantMessageResponse = await addMessage(conversation, {
+      role: 'assistant',
+      content: fullContent,
+      tokens_used: estimateTokensFromText(fullContent),
+      generation_time_ms: Date.now() - generationStartedAt,
+    })
+
+    addLocalMessage({
+      id: assistantMessageResponse.id,
+      role: 'assistant',
+      content: fullContent,
+      attachments: [],
+      createdAt: assistantMessageResponse.created_at,
+      tokensUsed: assistantMessageResponse.tokens_used ?? undefined,
+      generationTimeMs: assistantMessageResponse.generation_time_ms ?? undefined,
+    })
+  }
+
+  const handlePresetSelect = (preset: Preset | null) => {
+    setSelectedPresetId(preset?.id ?? null)
+
+    if (!preset) {
+      setInferenceParams({ ...DEFAULT_PARAMS })
+      setSystemPrompt('')
+      return
+    }
+
+    setInferenceParams({
+      ...DEFAULT_PARAMS,
+      ...normalizePresetParameters(preset.parameters),
+    })
+    setSystemPrompt(preset.system_prompt ?? '')
+  }
 
   const handleSend = async () => {
     const trimmed = input.trim()
     if ((!trimmed && attachments.length === 0) || isStreaming) return
 
-    const currentAttachments = attachments
+    const currentAttachments = [...attachments]
+    let conversation = activeConversationId
+    let userMessageSaved = false
 
     setInput('')
     setAttachments([])
-    setStreaming(true)
-    clearStreamContent()
-    setStreamStartTime(Date.now())
-    setStreamTokenCount(0)
+    beginStreaming()
 
     try {
-      // If no active conversation, create one
-      let convoId = activeConversationId
-      if (!convoId) {
-        const title = trimmed.length > 50 ? trimmed.slice(0, 50) + '...' : trimmed
-        const convo = await createConversation({
-          title: title || `Files: ${currentAttachments.map((attachment) => attachment.name).join(', ').slice(0, 50)}`,
+      if (!conversation) {
+        const title = trimmed
+          ? (trimmed.length > 50 ? `${trimmed.slice(0, 50)}...` : trimmed)
+          : `Files: ${currentAttachments.map((attachment) => attachment.name).join(', ').slice(0, 50)}`
+
+        const createdConversation = await createConversation({
+          title,
           model_id: activeModelId ?? undefined,
-          preset_id: selectedPresetId || undefined,
-          system_prompt: profile === 'advanced' ? systemPrompt || undefined : undefined,
+          preset_id: selectedPresetId ?? undefined,
+          system_prompt: systemPrompt || selectedPreset?.system_prompt || undefined,
         })
-        convoId = convo.id
-        setActiveConversation(convoId)
-        navigate(`/chat/${convoId}`, { replace: true })
-        queryClient.invalidateQueries({ queryKey: ['conversations'] })
+        conversation = createdConversation.id
+        setActiveConversation(conversation)
+        navigate(`/chat/${conversation}`, { replace: true })
       }
 
-      // Save user message to backend
-      const userMsgResponse = await addMessage(convoId, {
+      const userMessageResponse = await addMessage(conversation, {
         role: 'user',
         content: trimmed,
         attachments: currentAttachments,
       })
+      userMessageSaved = true
 
-      const userMsg: ChatMessage = {
-        id: userMsgResponse.id,
-        role: 'user' as const,
+      const userMessage: ChatMessage = {
+        id: userMessageResponse.id,
+        role: 'user',
         content: trimmed,
         attachments: currentAttachments,
-        createdAt: userMsgResponse.created_at,
+        createdAt: userMessageResponse.created_at,
       }
-      addLocalMessage(userMsg)
+      addLocalMessage(userMessage)
 
-      // Build the full message history to send to llama.cpp
-      const chatMessages = [...messages, userMsg]
-        .filter((m) => !m.isError)
-        .map((m) => ({
-          role: m.role,
-          content: buildMessageForModel(m),
-        }))
-
-      // Stream the response, passing inference params if in advanced mode
-      let fullContent = ''
-      let assistantChunkCount = 0
-      const generationStartedAt = Date.now()
-      const chatOptions = profile === 'advanced' ? {
-        ...inferenceParams,
-        system_prompt: systemPrompt || undefined,
-      } : undefined
-      abortRef.current = new AbortController()
-      for await (const chunk of streamChat(chatMessages, chatOptions, abortRef.current.signal)) {
-        fullContent += chunk
-        appendStreamContent(chunk)
-        assistantChunkCount += 1
-        setStreamTokenCount((prev) => prev + 1)
+      await streamAssistantReply(conversation, buildChatMessages([...messages, userMessage]))
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        if (!userMessageSaved) {
+          setInput(trimmed)
+          setAttachments(currentAttachments)
+        }
+        return
       }
 
-      const estimatedTokensUsed = Math.max(assistantChunkCount, Math.ceil(fullContent.length / 4))
-      // Save assistant message to backend
-      const assistantMsgResponse = await addMessage(convoId, {
-        role: 'assistant',
-        content: fullContent,
-        tokens_used: estimatedTokensUsed,
-        generation_time_ms: Date.now() - generationStartedAt,
-      })
-
-      addLocalMessage({
-        id: assistantMsgResponse.id,
-        role: 'assistant',
-        content: fullContent,
-        attachments: [],
-        createdAt: assistantMsgResponse.created_at,
-        tokensUsed: assistantMsgResponse.tokens_used ?? undefined,
-        generationTimeMs: assistantMsgResponse.generation_time_ms ?? undefined,
-      })
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
-      if (err instanceof DOMException && err.name === 'AbortError') return
-      toast.error(errorMsg)
-      setAttachments(currentAttachments)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      if (!userMessageSaved) {
+        setInput(trimmed)
+        setAttachments(currentAttachments)
+      }
+      toast.error(errorMessage)
       addLocalMessage({
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Error: ${errorMsg}`,
+        content: `Error: ${errorMessage}`,
         attachments: [],
         createdAt: new Date().toISOString(),
         isError: true,
       })
     } finally {
-      abortRef.current = null
-      setStreaming(false)
-      clearStreamContent()
-      setStreamStartTime(null)
-      setStreamTokenCount(0)
+      finishStreaming()
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      if (conversation) {
+        queryClient.invalidateQueries({ queryKey: ['conversation', conversation] })
+      }
     }
   }
 
   const handleRegenerate = async () => {
-    if (isStreaming || messages.length < 2) return
-    // Remove the last assistant message and re-send
-    const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
-    if (!lastAssistant) return
-    const newMessages = messages.filter((m) => m.id !== lastAssistant.id)
-    setMessages(newMessages)
+    if (isStreaming || messages.length < 2 || !activeConversationId) return
 
-    // Re-build message history and stream
-    setStreaming(true)
-    clearStreamContent()
-    setStreamStartTime(Date.now())
-    setStreamTokenCount(0)
+    const lastAssistant = [...messages].reverse().find((message) => message.role === 'assistant')
+    if (!lastAssistant) return
+
+    const previousMessages = messages
+    const nextMessages = messages.filter((message) => message.id !== lastAssistant.id)
+    setMessages(nextMessages)
+    beginStreaming()
 
     try {
-      const chatMessages = newMessages
-        .filter((m) => !m.isError)
-        .map((m) => ({ role: m.role, content: buildMessageForModel(m) }))
-
-      let fullContent = ''
-      let assistantChunkCount = 0
-      const generationStartedAt = Date.now()
-      const chatOptions = profile === 'advanced' ? {
-        ...inferenceParams,
-        system_prompt: systemPrompt || undefined,
-      } : undefined
-      abortRef.current = new AbortController()
-      for await (const chunk of streamChat(chatMessages, chatOptions, abortRef.current.signal)) {
-        fullContent += chunk
-        appendStreamContent(chunk)
-        assistantChunkCount += 1
-        setStreamTokenCount((prev) => prev + 1)
+      await streamAssistantReply(activeConversationId, buildChatMessages(nextMessages))
+      try {
+        await deleteMessage(activeConversationId, lastAssistant.id)
+      } catch {
+        toast.error('Regenerated response saved, but the previous answer could not be removed')
+      }
+    } catch (error) {
+      setMessages(previousMessages)
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
       }
 
-      const convoId = activeConversationId
-      if (convoId) {
-        const estimatedTokensUsed = Math.max(assistantChunkCount, Math.ceil(fullContent.length / 4))
-        const assistantMsgResponse = await addMessage(convoId, {
-          role: 'assistant',
-          content: fullContent,
-          tokens_used: estimatedTokensUsed,
-          generation_time_ms: Date.now() - generationStartedAt,
-        })
-        addLocalMessage({
-          id: assistantMsgResponse.id,
-          role: 'assistant',
-          content: fullContent,
-          attachments: [],
-          createdAt: assistantMsgResponse.created_at,
-          tokensUsed: assistantMsgResponse.tokens_used ?? undefined,
-          generationTimeMs: assistantMsgResponse.generation_time_ms ?? undefined,
-        })
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
-      if (err instanceof DOMException && err.name === 'AbortError') return
-      toast.error(errorMsg)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      toast.error(errorMessage)
     } finally {
-      abortRef.current = null
-      setStreaming(false)
-      clearStreamContent()
-      setStreamStartTime(null)
-      setStreamTokenCount(0)
+      finishStreaming()
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ queryKey: ['conversation', activeConversationId] })
     }
   }
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault()
+      void handleSend()
     }
   }
 
   const isServerReady = serverStatus === 'running'
-
-  // Rough token count estimate (~4 chars per token for English)
   const estimatedTokens = Math.ceil((input.length + attachments.reduce((sum, attachment) => sum + attachment.content.length, 0)) / 4)
 
-  // Auto-resize textarea to its content
   const autoResize = useCallback(() => {
-    const el = inputRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+    const element = inputRef.current
+    if (!element) return
+    element.style.height = 'auto'
+    element.style.height = `${Math.min(element.scrollHeight, 200)}px`
   }, [])
 
   useEffect(() => {
     autoResize()
-  }, [input, autoResize])
+  }, [autoResize, input])
 
   const handleFilesAdded = useCallback(async (files: File[]) => {
     const nextAttachments: MessageAttachment[] = []
@@ -328,21 +411,40 @@ export function ChatView() {
     }
   }
 
+  const showConversationLoading = Boolean(conversationId) && conversationLoading && messages.length === 0
+
   return (
     <div className="flex h-full">
-      {/* Main chat area */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Messages */}
+      <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto">
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-5 px-4">
-              <div className="relative w-16 h-16 rounded-2xl border border-primary/20 bg-primary/12 flex items-center justify-center overflow-hidden">
-                <div className="absolute -top-5 -left-5 h-12 w-12 rounded-full bg-primary/20 blur-md" />
-                <MessageCircle className="relative w-8 h-8 fill-current text-primary" />
+          {showConversationLoading ? (
+            <div className="flex h-full items-center justify-center px-4">
+              <div className="text-sm text-text-muted">Loading conversation...</div>
+            </div>
+          ) : conversationLoadFailed ? (
+            <div className="flex h-full items-center justify-center px-4">
+              <div className="max-w-md rounded-2xl border border-border bg-surface-dim px-6 py-5 text-center">
+                <h2 className="text-base font-semibold text-text">Conversation unavailable</h2>
+                <p className="mt-2 text-sm text-text-muted">
+                  This chat could not be loaded. It may have been deleted or moved.
+                </p>
+                <button
+                  onClick={() => navigate('/chat')}
+                  className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+                >
+                  Start a new chat
+                </button>
               </div>
-              <div className="text-center max-w-md">
-                <h2 className="text-lg font-bold text-text mb-2">Start a conversation</h2>
-                <p className="text-sm text-text-muted leading-relaxed">
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-5 px-4">
+              <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-primary/20 bg-primary/12">
+                <div className="absolute -left-5 -top-5 h-12 w-12 rounded-full bg-primary/20 blur-md" />
+                <MessageCircle className="relative h-8 w-8 fill-current text-primary" />
+              </div>
+              <div className="max-w-md text-center">
+                <h2 className="mb-2 text-lg font-bold text-text">Start a conversation</h2>
+                <p className="text-sm leading-relaxed text-text-muted">
                   {isServerReady
                     ? 'Type a message below to begin.'
                     : 'Load a model from the Models page to begin chatting.'}
@@ -350,9 +452,9 @@ export function ChatView() {
               </div>
             </div>
           ) : (
-            <div className="max-w-3xl mx-auto py-6 px-6 space-y-5">
-              {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
+            <div className="mx-auto max-w-3xl space-y-5 px-6 py-6">
+              {messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
               ))}
               {isStreaming && (
                 <MessageBubble
@@ -370,7 +472,6 @@ export function ChatView() {
           )}
         </div>
 
-        {/* Streaming speed indicator */}
         {isStreaming && tokensPerSecond && (
           <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-text-muted">
             <Gauge className="w-3 h-3" />
@@ -378,9 +479,8 @@ export function ChatView() {
           </div>
         )}
 
-        {/* Input Area */}
         <div className="bg-surface px-4 pb-4 pt-2">
-          <div className="max-w-3xl mx-auto">
+          <div className="mx-auto max-w-3xl">
             <div
               onDragOver={(event) => {
                 event.preventDefault()
@@ -393,7 +493,7 @@ export function ChatView() {
               onDrop={handleDropFiles}
               className={cn(
                 'relative rounded-3xl border bg-surface-dim p-3 transition-colors focus-within:border-text-muted/40',
-                isDragActive ? 'border-primary bg-primary/5' : 'border-border'
+                isDragActive ? 'border-primary bg-primary/5' : 'border-border',
               )}
             >
               <input
@@ -427,65 +527,57 @@ export function ChatView() {
               )}
 
               <div className="relative flex items-end gap-2">
-                <PresetSelector 
+                <PresetSelector
                   selectedPresetId={selectedPresetId}
-                  onSelect={setSelectedPresetId}
+                  onSelect={handlePresetSelect}
                 />
                 <textarea
                   ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(event) => setInput(event.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={
-                    isServerReady
-                      ? 'Message...'
-                      : 'Load a model to start chatting...'
-                  }
+                  placeholder={isServerReady ? 'Message...' : 'Load a model to start chatting...'}
                   disabled={!isServerReady}
                   rows={1}
-                  className="flex-1 bg-transparent resize-none outline-none text-text placeholder-text-muted text-sm leading-relaxed max-h-[200px] min-h-[36px] py-1 px-1 disabled:opacity-40"
+                  className="min-h-[36px] max-h-[200px] flex-1 resize-none bg-transparent px-1 py-1 text-sm leading-relaxed text-text outline-none placeholder-text-muted disabled:opacity-40"
                 />
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex shrink-0 items-center gap-1">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={!isServerReady || isStreaming}
-                    className="p-2 rounded-xl text-text-muted hover:text-text hover:bg-surface-hover transition-colors disabled:opacity-30"
+                    className="rounded-xl p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-30"
                     title={attachmentInputHint()}
                   >
                     <Paperclip className="w-4 h-4" />
                   </button>
-                {messages.length >= 2 && !isStreaming && isServerReady && (
+                  {messages.length >= 2 && !isStreaming && isServerReady && (
+                    <button
+                      onClick={() => void handleRegenerate()}
+                      className="rounded-xl p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+                      title="Regenerate last response"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  )}
                   <button
-                    onClick={handleRegenerate}
-                    className="p-2 rounded-xl text-text-muted hover:text-text hover:bg-surface-hover transition-colors"
-                    title="Regenerate last response"
+                    onClick={isStreaming ? cancelStreaming : () => void handleSend()}
+                    disabled={!isServerReady || (!input.trim() && attachments.length === 0 && !isStreaming)}
+                    className={cn(
+                      'shrink-0 rounded-xl p-2 transition-colors',
+                      isStreaming
+                        ? 'bg-error text-white hover:bg-error/80'
+                        : 'bg-primary text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-20',
+                    )}
                   >
-                    <RotateCcw className="w-4 h-4" />
+                    {isStreaming ? (
+                      <Square className="w-4 h-4" />
+                    ) : (
+                      <ArrowUp className="w-4 h-4" />
+                    )}
                   </button>
-                )}
-                <button
-                  onClick={isStreaming ? () => {
-                    abortRef.current?.abort()
-                    setStreaming(false)
-                    clearStreamContent()
-                  } : handleSend}
-                  disabled={!isServerReady || (!input.trim() && !isStreaming)}
-                  className={cn(
-                    'p-2 rounded-xl transition-colors shrink-0',
-                    isStreaming
-                      ? 'bg-error text-white hover:bg-error/80'
-                      : 'bg-primary text-white hover:bg-primary-hover disabled:opacity-20 disabled:cursor-not-allowed'
-                  )}
-                >
-                  {isStreaming ? (
-                    <Square className="w-4 h-4" />
-                  ) : (
-                    <ArrowUp className="w-4 h-4" />
-                  )}
-                </button>
+                </div>
               </div>
-            </div>
               {isDragActive && (
                 <div className="pointer-events-none mt-3 rounded-2xl border border-dashed border-primary/45 bg-primary/6 px-4 py-3 text-center text-xs font-medium text-primary">
                   Drop files here to attach them to this turn.
@@ -496,12 +588,12 @@ export function ChatView() {
               {profile === 'advanced' && (
                 <div className="flex items-center gap-1.5 text-xs text-text-muted">
                   <span>{input.length}c / ~{estimatedTokens}t</span>
-                  <div className="w-px h-3 bg-border" />
+                  <div className="h-3 w-px bg-border" />
                   <button
                     onClick={() => setSidePanel(sidePanel === 'params' ? null : 'params')}
                     className={cn(
-                      'p-1.5 rounded-lg hover:text-text hover:bg-surface-hover transition-colors',
-                      sidePanel === 'params' && 'text-primary bg-primary/10'
+                      'rounded-lg p-1.5 transition-colors hover:bg-surface-hover hover:text-text',
+                      sidePanel === 'params' && 'bg-primary/10 text-primary',
                     )}
                     title="Parameters"
                   >
@@ -510,8 +602,8 @@ export function ChatView() {
                   <button
                     onClick={() => setSidePanel(sidePanel === 'system-prompt' ? null : 'system-prompt')}
                     className={cn(
-                      'p-1.5 rounded-lg hover:text-text hover:bg-surface-hover transition-colors',
-                      sidePanel === 'system-prompt' && 'text-primary bg-primary/10'
+                      'rounded-lg p-1.5 transition-colors hover:bg-surface-hover hover:text-text',
+                      sidePanel === 'system-prompt' && 'bg-primary/10 text-primary',
                     )}
                     title="System Prompt"
                   >
@@ -520,8 +612,8 @@ export function ChatView() {
                   <button
                     onClick={() => setSidePanel(sidePanel === 'logs' ? null : 'logs')}
                     className={cn(
-                      'p-1.5 rounded-lg hover:text-text hover:bg-surface-hover transition-colors',
-                      sidePanel === 'logs' && 'text-primary bg-primary/10'
+                      'rounded-lg p-1.5 transition-colors hover:bg-surface-hover hover:text-text',
+                      sidePanel === 'logs' && 'bg-primary/10 text-primary',
                     )}
                     title="Logs"
                   >
@@ -534,7 +626,6 @@ export function ChatView() {
         </div>
       </div>
 
-      {/* Side panels (advanced mode) */}
       {profile === 'advanced' && sidePanel === 'params' && (
         <ParameterPanel
           params={inferenceParams}

@@ -77,30 +77,30 @@ async fn chat_completions(
     }
 
     // Validate temperature range
-    if let Some(temp) = req.temperature {
-        if !(0.0..=2.0).contains(&temp) {
-            return Err(crate::error::AppError::BadRequest(
-                "Temperature must be between 0.0 and 2.0".into(),
-            ));
-        }
+    if let Some(temp) = req.temperature
+        && !(0.0..=2.0).contains(&temp)
+    {
+        return Err(crate::error::AppError::BadRequest(
+            "Temperature must be between 0.0 and 2.0".into(),
+        ));
     }
 
     // Validate top_p range
-    if let Some(top_p) = req.top_p {
-        if !(0.0..=1.0).contains(&top_p) {
-            return Err(crate::error::AppError::BadRequest(
-                "top_p must be between 0.0 and 1.0".into(),
-            ));
-        }
+    if let Some(top_p) = req.top_p
+        && !(0.0..=1.0).contains(&top_p)
+    {
+        return Err(crate::error::AppError::BadRequest(
+            "top_p must be between 0.0 and 1.0".into(),
+        ));
     }
 
     // Validate max_tokens
-    if let Some(max_tokens) = req.max_tokens {
-        if max_tokens < 1 {
-            return Err(crate::error::AppError::BadRequest(
-                "max_tokens must be positive".into(),
-            ));
-        }
+    if let Some(max_tokens) = req.max_tokens
+        && max_tokens < 1
+    {
+        return Err(crate::error::AppError::BadRequest(
+            "max_tokens must be positive".into(),
+        ));
     }
 
     // Read status and port while holding the lock, then release it

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { ChevronDown, HardDrive, Loader2 } from 'lucide-react'
 import { getModels, startServer, stopServer } from '@/lib/api'
@@ -18,16 +18,21 @@ export function ModelSelector() {
 
   const { data } = useQuery({
     queryKey: ['models'],
-    queryFn: async () => {
-      const result = await getModels()
-      setModels(result.models)
-      return result
-    },
+    queryFn: getModels,
   })
+
+  useEffect(() => {
+    if (data?.models) {
+      setModels(data.models)
+    }
+  }, [data, setModels])
 
   const startMutation = useMutation({
     mutationFn: (modelId: string) => startServer(modelId),
-    onSuccess: () => toast.success('Model loading...'),
+    onSuccess: (_data, modelId) => {
+      setActiveModel(modelId)
+      toast.success('Model loading...')
+    },
     onError: () => toast.error('Failed to start model'),
   })
 
@@ -37,44 +42,45 @@ export function ModelSelector() {
       setActiveModel(null)
       toast.success('Model unloaded')
     },
+    onError: () => toast.error('Failed to unload model'),
   })
 
-  // Close on outside click
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    const handler = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
         setOpen(false)
       }
     }
+
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const activeModel = models.find((m) => m.id === activeModelId)
+  const activeModel = models.find((model) => model.id === activeModelId)
   const modelList = data?.models ?? models
-  const isLoading = serverStatus === 'starting' || serverStatus === 'stopping'
+  const isLoading = serverStatus === 'starting' || serverStatus === 'stopping' || startMutation.isPending || stopMutation.isPending
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-dim border border-border text-sm hover:bg-surface-hover transition-colors max-w-[240px]"
+        className="flex max-w-[240px] items-center gap-2 rounded-xl border border-border bg-surface-dim px-3 py-2 text-sm transition-colors hover:bg-surface-hover"
       >
-        <HardDrive className="w-4 h-4 text-text-muted shrink-0" />
+        <HardDrive className="w-4 h-4 shrink-0 text-text-muted" />
         <span className="truncate text-text-secondary">
           {activeModel ? activeModel.name : 'No model'}
         </span>
         {isLoading ? (
-          <Loader2 className="w-4 h-4 text-text-muted animate-spin shrink-0" />
+          <Loader2 className="w-4 h-4 shrink-0 animate-spin text-text-muted" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-text-muted shrink-0" />
+          <ChevronDown className="w-4 h-4 shrink-0 text-text-muted" />
         )}
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-80 bg-surface border border-border rounded-xl shadow-lg z-50 overflow-hidden">
+        <div className="absolute left-0 top-full z-50 mt-1.5 w-80 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
           {modelList.length === 0 ? (
-            <div className="p-5 text-sm text-text-muted text-center">
+            <div className="p-5 text-center text-sm text-text-muted">
               No models available. Scan for models on the Models page.
             </div>
           ) : (
@@ -87,40 +93,36 @@ export function ModelSelector() {
                     onClick={() => {
                       if (isActive) {
                         stopMutation.mutate()
+                      } else if (serverStatus === 'running') {
+                        stopMutation.mutate(undefined, {
+                          onSuccess: () => startMutation.mutate(model.id),
+                        })
                       } else {
-                        if (serverStatus === 'running') {
-                          stopMutation.mutate(undefined, {
-                            onSuccess: () => {
-                              setActiveModel(model.id)
-                              startMutation.mutate(model.id)
-                            },
-                          })
-                        } else {
-                          setActiveModel(model.id)
-                          startMutation.mutate(model.id)
-                        }
+                        startMutation.mutate(model.id)
                       }
                       setOpen(false)
                     }}
                     disabled={isLoading}
                     className={cn(
-                      'w-full flex items-center gap-3 px-4 py-3 text-left text-sm transition-colors',
+                      'w-full px-4 py-3 text-left text-sm transition-colors',
                       isActive
                         ? 'bg-primary/10 text-primary'
-                        : 'hover:bg-surface-hover text-text-secondary'
+                        : 'text-text-secondary hover:bg-surface-hover',
                     )}
                   >
-                    <HardDrive className="w-4 h-4 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{model.name}</div>
-                      <div className="text-xs text-text-muted mt-0.5">
-                        {formatBytes(model.size_bytes)}
-                        {model.quantization && ` · ${model.quantization}`}
-                      </div>
-                    </div>
-                    {isActive && (
-                      <span className="text-xs font-semibold text-primary">Active</span>
-                    )}
+                    <span className="flex items-center gap-3">
+                      <HardDrive className="w-4 h-4 shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{model.name}</span>
+                        <span className="mt-0.5 block text-xs text-text-muted">
+                          {formatBytes(model.size_bytes)}
+                          {model.quantization && ` · ${model.quantization}`}
+                        </span>
+                      </span>
+                      {isActive && (
+                        <span className="text-xs font-semibold text-primary">Active</span>
+                      )}
+                    </span>
                   </button>
                 )
               })}

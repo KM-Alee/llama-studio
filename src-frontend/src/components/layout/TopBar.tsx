@@ -1,17 +1,35 @@
-import { useQuery } from '@tanstack/react-query'
-import { PanelLeft, Download, GitFork, Search, Zap } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { PanelLeft, Download, GitFork, Search, Zap, Pencil } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { useServerStore, type ServerStatus } from '@/stores/serverStore'
 import { useChatStore } from '@/stores/chatStore'
-import { getServerStatus, exportConversationMarkdown, exportConversationJson, forkConversation } from '@/lib/api'
+import {
+  getConversations,
+  getServerStatus,
+  exportConversationMarkdown,
+  exportConversationJson,
+  forkConversation,
+  updateConversation,
+} from '@/lib/api'
 import { ModelSelector } from './ModelSelector'
+import { InputModal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 
+function slugifyFilename(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return slug.slice(0, 48) || 'conversation'
+}
+
 export function TopBar() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const profile = useAppStore((s) => s.profile)
   const toggleProfile = useAppStore((s) => s.toggleProfile)
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
@@ -21,11 +39,17 @@ export function TopBar() {
   const setStatus = useServerStore((s) => s.setStatus)
   const activeConversationId = useChatStore((s) => s.activeConversationId)
   const [showExport, setShowExport] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
 
   const { data } = useQuery({
     queryKey: ['server-status'],
     queryFn: getServerStatus,
-    refetchInterval: 3000,
+    staleTime: 30_000,
+  })
+
+  const { data: conversationsData } = useQuery({
+    queryKey: ['conversations'],
+    queryFn: getConversations,
   })
 
   useEffect(() => {
@@ -33,6 +57,29 @@ export function TopBar() {
       setStatus(data.status as ServerStatus)
     }
   }, [data, setStatus])
+
+  const currentConversation = useMemo(
+    () => conversationsData?.conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
+    [activeConversationId, conversationsData?.conversations],
+  )
+
+  const renameMutation = useMutation({
+    mutationFn: async (title: string) => {
+      if (!activeConversationId) {
+        throw new Error('No active conversation')
+      }
+
+      return updateConversation(activeConversationId, { title })
+    },
+    onSuccess: () => {
+      toast.success('Conversation renamed')
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      if (activeConversationId) {
+        queryClient.invalidateQueries({ queryKey: ['conversation', activeConversationId] })
+      }
+    },
+    onError: (error: Error) => toast.error(error.message || 'Rename failed'),
+  })
 
   const statusColor = {
     stopped: 'bg-text-muted',
@@ -50,14 +97,17 @@ export function TopBar() {
     error: 'Error',
   }[serverStatus]
 
+  const exportBaseName = slugifyFilename(currentConversation?.title ?? 'conversation')
+
   return (
-    <header className="h-14 border-b border-border flex items-center justify-between px-4 bg-surface shrink-0">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-4">
       <div className="flex items-center gap-3">
         {!sidebarOpen && (
           <button
             onClick={toggleSidebar}
-            className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+            className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
             title="Open sidebar"
+            aria-label="Open sidebar"
           >
             <PanelLeft className="w-4 h-4" />
           </button>
@@ -68,60 +118,72 @@ export function TopBar() {
           <span>{statusLabel}</span>
         </div>
 
-        <div className="w-px h-5 bg-border mx-0.5" />
+        <div className="mx-0.5 h-5 w-px bg-border" />
 
         <ModelSelector />
       </div>
 
       <div className="flex items-center gap-1">
-        {/* Chat actions */}
         {activeConversationId && (
           <>
+            <button
+              onClick={() => setRenameOpen(true)}
+              className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
+              title="Rename conversation"
+              aria-label="Rename conversation"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
             <div className="relative">
               <button
                 onClick={() => setShowExport(!showExport)}
-                className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+                className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
                 title="Export"
+                aria-label="Export conversation"
               >
                 <Download className="w-4 h-4" />
               </button>
               {showExport && (
-                <div className="absolute top-full right-0 mt-1 w-48 bg-surface border border-border rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-lg">
                   <button
                     onClick={async () => {
                       try {
-                        const md = await exportConversationMarkdown(activeConversationId)
-                        const blob = new Blob([md], { type: 'text/markdown' })
+                        const markdown = await exportConversationMarkdown(activeConversationId)
+                        const blob = new Blob([markdown], { type: 'text/markdown' })
                         const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = 'conversation.md'
-                        a.click()
+                        const link = document.createElement('a')
+                        link.href = url
+                        link.download = `${exportBaseName}.md`
+                        link.click()
                         URL.revokeObjectURL(url)
                         setShowExport(false)
                         toast.success('Exported as Markdown')
-                      } catch { toast.error('Export failed') }
+                      } catch {
+                        toast.error('Export failed')
+                      }
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
+                    className="w-full px-4 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
                   >
                     Markdown
                   </button>
                   <button
                     onClick={async () => {
                       try {
-                        const data = await exportConversationJson(activeConversationId)
-                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+                        const conversation = await exportConversationJson(activeConversationId)
+                        const blob = new Blob([JSON.stringify(conversation, null, 2)], { type: 'application/json' })
                         const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = 'conversation.json'
-                        a.click()
+                        const link = document.createElement('a')
+                        link.href = url
+                        link.download = `${exportBaseName}.json`
+                        link.click()
                         URL.revokeObjectURL(url)
                         setShowExport(false)
                         toast.success('Exported as JSON')
-                      } catch { toast.error('Export failed') }
+                      } catch {
+                        toast.error('Export failed')
+                      }
                     }}
-                    className="w-full text-left px-4 py-2 text-sm text-text-secondary hover:bg-surface-hover hover:text-text transition-colors"
+                    className="w-full px-4 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
                   >
                     JSON
                   </button>
@@ -134,40 +196,53 @@ export function TopBar() {
                   const forked = await forkConversation(activeConversationId)
                   toast.success('Conversation forked')
                   navigate(`/chat/${forked.id}`)
-                } catch { toast.error('Fork failed') }
+                } catch {
+                  toast.error('Fork failed')
+                }
               }}
-              className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+              className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
               title="Fork conversation"
+              aria-label="Fork conversation"
             >
               <GitFork className="w-4 h-4" />
             </button>
-            <div className="w-px h-5 bg-border mx-0.5" />
+            <div className="mx-0.5 h-5 w-px bg-border" />
           </>
         )}
 
-        {/* Command Palette */}
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="p-2 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+          className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
           title="Search (Ctrl+K)"
+          aria-label="Open command palette"
         >
           <Search className="w-4 h-4" />
         </button>
 
-        {/* Profile Toggle */}
         <button
           onClick={toggleProfile}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+            'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
             profile === 'advanced'
               ? 'bg-primary/10 text-primary'
-              : 'text-text-muted hover:bg-surface-hover'
+              : 'text-text-muted hover:bg-surface-hover',
           )}
         >
           <Zap className="w-3.5 h-3.5" />
           {profile === 'normal' ? 'Normal' : 'Advanced'}
         </button>
       </div>
+
+      <InputModal
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        onSubmit={(title) => renameMutation.mutate(title)}
+        title="Rename conversation"
+        description="Give this chat a clearer title so it is easier to find later."
+        placeholder="Conversation title"
+        submitLabel="Rename"
+        initialValue={currentConversation?.title ?? ''}
+      />
     </header>
   )
 }

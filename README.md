@@ -35,7 +35,7 @@ AI Studio is a local-first desktop-style web UI for [llama.cpp](https://github.c
 
 - **Monorepo**: Rust Axum backend (`src-backend/`) & React + Vite frontend (`src-frontend/`).
 - **Engine**: Manages `llama-server` as a subprocess, bound to `127.0.0.1` for security.
-- **Stability**: Full integration test suite and strict TypeScript type-checking.
+- **Stability**: CI validates backend (`cargo check`, `clippy`, `cargo test`) and frontend (type-check, lint, Vitest unit tests) on every push.
 
 ## 🛠️ Tech Stack
 
@@ -94,7 +94,7 @@ ai-studio/
 We welcome contributions! Please ensure:
 1. Backend remains bound to `127.0.0.1`.
 2. All API interactions are centralized in `src-frontend/src/lib/api.ts`.
-3. You run `make check` before opening a pull request.
+3. You run `make check && make test` before opening a pull request.
 
 Check [ARCHITECTURE.md](docs/ARCHITECTURE.md) for a deep dive into the system design.
 

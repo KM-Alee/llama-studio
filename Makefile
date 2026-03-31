@@ -28,11 +28,15 @@ check:
 	cd src-frontend && pnpm lint
 
 # Run all tests
-test: test-backend
+test: test-backend test-frontend
 
 # Run backend tests
 test-backend:
 	cd src-backend && cargo test
+
+# Run frontend unit tests
+test-frontend:
+	cd src-frontend && pnpm test
 
 # Format code
 fmt:

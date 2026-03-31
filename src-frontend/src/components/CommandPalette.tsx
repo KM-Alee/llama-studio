@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, MessageSquare, Settings, Box, Sun, Moon, Monitor, Zap } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
-import { searchConversations } from '@/lib/api'
+import { searchConversations, type Conversation } from '@/lib/api'
 
 interface Command {
   id: string
@@ -21,13 +21,43 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<Conversation[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const toggleProfile = useAppStore((s) => s.toggleProfile)
   const setTheme = useAppStore((s) => s.setTheme)
   const profile = useAppStore((s) => s.profile)
 
-  const staticCommands: Command[] = [
+  // Reset state when palette opens (derived-state-from-props pattern)
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) {
+      setQuery('')
+      setSearchResults([])
+      setSelectedIndex(0)
+    }
+  }
+
+  // Focus input when opened
+  useEffect(() => {
+    if (open) {
+      const timer = setTimeout(() => inputRef.current?.focus(), 50)
+      return () => clearTimeout(timer)
+    }
+  }, [open])
+
+  // Async conversation search — only sets state inside async callback
+  useEffect(() => {
+    if (query.length < 2) return
+    const timeout = setTimeout(() => {
+      searchConversations(query)
+        .then((data) => setSearchResults(data.conversations || []))
+        .catch(() => setSearchResults([]))
+    }, 200)
+    return () => clearTimeout(timeout)
+  }, [query])
+
+  const staticCommands: Command[] = useMemo(() => [
     {
       id: 'new-chat',
       label: 'New Chat',
@@ -77,48 +107,27 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       icon: <Zap className="w-4 h-4" />,
       action: () => { toggleProfile(); onClose() },
     },
-  ]
+  ], [navigate, onClose, setTheme, toggleProfile, profile])
 
-  // Search conversations when query changes
-  useEffect(() => {
-    if (query.length >= 2) {
-      const timeout = setTimeout(() => {
-        searchConversations(query).then((data) => {
-          setSearchResults(data.conversations || [])
-        }).catch(() => setSearchResults([]))
-      }, 200)
-      return () => clearTimeout(timeout)
-    } else {
-      setSearchResults([])
-    }
-  }, [query])
+  const conversationCommands: Command[] = useMemo(() =>
+    query.length >= 2
+      ? searchResults.map((c) => ({
+          id: `convo-${c.id}`,
+          label: c.title,
+          category: 'Conversations',
+          icon: <MessageSquare className="w-4 h-4" />,
+          action: () => { navigate(`/chat/${c.id}`); onClose() },
+        }))
+      : [],
+    [query, searchResults, navigate, onClose]
+  )
 
-  const conversationCommands: Command[] = searchResults.map((c) => ({
-    id: `convo-${c.id}`,
-    label: c.title,
-    category: 'Conversations',
-    icon: <MessageSquare className="w-4 h-4" />,
-    action: () => { navigate(`/chat/${c.id}`); onClose() },
-  }))
-
-  const allCommands = [
+  const allCommands = useMemo(() => [
     ...staticCommands.filter((c) =>
       c.label.toLowerCase().includes(query.toLowerCase())
     ),
     ...conversationCommands,
-  ]
-
-  useEffect(() => {
-    setSelectedIndex(0)
-  }, [query])
-
-  useEffect(() => {
-    if (open) {
-      setQuery('')
-      setSearchResults([])
-      setTimeout(() => inputRef.current?.focus(), 50)
-    }
-  }, [open])
+  ], [staticCommands, query, conversationCommands])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -129,9 +138,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
       setSelectedIndex((i) => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (allCommands[selectedIndex]) {
-        allCommands[selectedIndex].action()
-      }
+      allCommands[selectedIndex]?.action()
     } else if (e.key === 'Escape') {
       onClose()
     }
@@ -152,7 +159,10 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setSelectedIndex(0)
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Type a command or search conversations..."
             className="flex-1 bg-transparent text-text text-sm outline-none placeholder-text-muted"

@@ -14,8 +14,6 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json()
 }
 
-// === Shared Types ===
-
 export interface Model {
   id: string
   name: string
@@ -158,7 +156,10 @@ export interface ModelAnalytics {
 export interface AppConfig {
   llama_cpp_path: string
   models_directory: string
+  default_profile: string
+  theme: string
   llama_server_port: number
+  app_port: number
   context_size: number
   gpu_layers: number
   threads: number
@@ -178,22 +179,24 @@ export interface HardwareInfo {
   total_ram_bytes: number | null
 }
 
+export interface ServerLogEntry {
+  timestamp: string
+  line: string
+}
+
 export interface ConversationExport {
   conversation: Conversation
   messages: Message[]
 }
 
-// Health
 export const getHealth = () => request<{ status: string; version: string }>('/health')
 
-// Models
 export const getModels = () => request<{ models: Model[] }>('/models')
 export const scanModels = () => request<{ scanned: number }>('/models/scan', { method: 'POST' })
 export const deleteModel = (id: string) => request<{ deleted: boolean }>(`/models/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const importModel = (path: string) =>
   request<Model>('/models/import', { method: 'POST', body: JSON.stringify({ path }) })
 
-// Downloads
 export const getDownloads = () => request<{ downloads: DownloadInfo[] }>('/downloads')
 export const startDownload = (url: string, filename: string) =>
   request<{ id: string }>('/downloads/start', {
@@ -203,7 +206,6 @@ export const startDownload = (url: string, filename: string) =>
 export const cancelDownload = (id: string) =>
   request<{ cancelled: boolean }>(`/downloads/${encodeURIComponent(id)}/cancel`, { method: 'POST' })
 
-// HuggingFace
 export const searchHuggingFace = (q: string, limit = 20) =>
   request<{ models: HuggingFaceModel[] }>(`/huggingface/search?q=${encodeURIComponent(q)}&limit=${limit}`)
 export const getHuggingFaceFiles = (repoId: string) =>
@@ -213,7 +215,6 @@ export const getModelInspection = (id: string) =>
 export const getModelAnalytics = (id: string) =>
   request<{ analytics: ModelAnalytics }>(`/models/${encodeURIComponent(id)}/analytics`)
 
-// Server
 export const startServer = (modelId: string, extraArgs: string[] = []) =>
   request<{ status: string }>('/server/start', {
     method: 'POST',
@@ -221,14 +222,13 @@ export const startServer = (modelId: string, extraArgs: string[] = []) =>
   })
 export const stopServer = () => request<{ status: string }>('/server/stop', { method: 'POST' })
 export const getServerStatus = () => request<{ status: string; model: string | null }>('/server/status')
-export const getServerLogs = () => request<{ logs: { timestamp: string; line: string }[] }>('/server/logs')
+export const getServerLogs = () => request<{ logs: ServerLogEntry[] }>('/server/logs')
 export const getServerFlags = () => request<{ flags: string[] }>('/server/flags')
 export const setServerFlags = (flags: string[]) =>
   request<{ flags: string[] }>('/server/flags', { method: 'PUT', body: JSON.stringify({ flags }) })
 export const getServerMetrics = () => request<Record<string, unknown>>('/server/metrics')
 export const detectHardware = () => request<{ hardware: HardwareInfo }>('/server/hardware')
 
-// Conversations
 export const getConversations = () => request<{ conversations: Conversation[] }>('/conversations')
 export const createConversation = (data: {
   title?: string
@@ -254,8 +254,11 @@ export const forkConversation = (id: string, afterMessageId?: string) =>
     method: 'POST',
     body: JSON.stringify({ after_message_id: afterMessageId }),
   })
+export const updateConversation = (id: string, data: { title?: string; preset_id?: string; system_prompt?: string }) =>
+  request<Conversation>(`/conversations/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) })
+export const deleteMessage = (conversationId: string, messageId: string) =>
+  request<{ deleted: boolean }>(`/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}`, { method: 'DELETE' })
 
-// Messages
 export const getMessages = (conversationId: string) =>
   request<{ messages: Message[] }>(`/conversations/${encodeURIComponent(conversationId)}/messages`)
 export const addMessage = (conversationId: string, data: {
@@ -270,7 +273,6 @@ export const addMessage = (conversationId: string, data: {
     body: JSON.stringify(data),
   })
 
-// Chat — SSE streaming that parses OpenAI-format SSE from the backend
 export async function* streamChat(
   messages: { role: string; content: string }[],
   params?: Record<string, unknown>,
@@ -295,10 +297,7 @@ export async function* streamChat(
     if (done) break
 
     buffer += decoder.decode(value, { stream: true })
-
-    // Process complete SSE lines from the buffer
     const lines = buffer.split('\n')
-    // Keep the last potentially incomplete line in the buffer
     buffer = lines.pop() ?? ''
 
     for (const line of lines) {
@@ -313,20 +312,18 @@ export async function* streamChat(
         const delta = parsed.choices?.[0]?.delta?.content
         if (delta) yield delta
       } catch {
-        // Not valid JSON yet — llama.cpp may split across chunks
+        // Ignore incomplete JSON fragments until the next chunk arrives.
       }
     }
   }
 }
 
-// Presets
 export const getPresets = () => request<{ presets: Preset[] }>('/presets')
 export const createPreset = (data: Omit<Preset, 'id' | 'is_builtin'>) =>
   request<Preset>('/presets', { method: 'POST', body: JSON.stringify(data) })
 export const deletePreset = (id: string) =>
   request<{ deleted: boolean }>(`/presets/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
-// Config
 export const getConfig = () => request<AppConfig>('/config')
 export const updateConfig = (data: Partial<AppConfig>) =>
   request<AppConfig>('/config', { method: 'PUT', body: JSON.stringify(data) })

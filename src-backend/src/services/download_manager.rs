@@ -165,13 +165,13 @@ async fn run_download(
         // Check for cancellation
         {
             let dls = downloads.lock().await;
-            if let Some(dl) = dls.get(&id) {
-                if dl.status == DownloadStatus::Cancelled {
-                    drop(dls);
-                    // Clean up partial file
-                    let _ = tokio::fs::remove_file(&dest).await;
-                    return Ok(());
-                }
+            if let Some(dl) = dls.get(&id)
+                && dl.status == DownloadStatus::Cancelled
+            {
+                drop(dls);
+                // Clean up partial file
+                let _ = tokio::fs::remove_file(&dest).await;
+                return Ok(());
             }
         }
 

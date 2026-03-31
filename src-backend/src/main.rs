@@ -1,4 +1,5 @@
 use anyhow::Result;
+use axum::extract::DefaultBodyLimit;
 use axum::http::HeaderValue;
 use axum::{Router, routing::get};
 use std::net::SocketAddr;
@@ -14,9 +15,12 @@ mod state;
 
 use state::AppState;
 
+/// Maximum allowed HTTP request body: 32 MiB (covers large prompts and model imports).
+const MAX_BODY_BYTES: usize = 32 * 1024 * 1024;
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing
+    // Initialize tracing.
     tracing_subscriber::registry()
         .with(
             EnvFilter::try_from_default_env()
@@ -25,10 +29,25 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    // Initialize application state
+    // Initialize application state.
     let state = AppState::new().await?;
 
-    // Build router
+    // Read the configured application port; default is 3000.
+    let app_port = state.config.get_app_port().await;
+
+    // Build CORS origins for both localhost and 127.0.0.1 on the dev Vite port and app port.
+    let cors_origins: Vec<HeaderValue> = [5173u16, app_port]
+        .iter()
+        .flat_map(|&port| {
+            [
+                format!("http://localhost:{}", port),
+                format!("http://127.0.0.1:{}", port),
+            ]
+        })
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    // Build router.
     let app = Router::new()
         .route("/api/v1/health", get(routes::health::health_check))
         .nest("/api/v1/models", routes::models::router())
@@ -41,15 +60,11 @@ async fn main() -> Result<()> {
         .nest("/api/v1/huggingface", routes::huggingface::router())
         .nest("/api/v1/ws", routes::ws::router())
         .fallback(routes::static_files::serve_spa)
+        .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
         .layer(TraceLayer::new_for_http())
         .layer(
             CorsLayer::new()
-                .allow_origin([
-                    "http://localhost:5173".parse::<HeaderValue>().unwrap(),
-                    "http://127.0.0.1:5173".parse::<HeaderValue>().unwrap(),
-                    "http://localhost:3000".parse::<HeaderValue>().unwrap(),
-                    "http://127.0.0.1:3000".parse::<HeaderValue>().unwrap(),
-                ])
+                .allow_origin(cors_origins)
                 .allow_methods([
                     axum::http::Method::GET,
                     axum::http::Method::POST,
@@ -59,16 +74,22 @@ async fn main() -> Result<()> {
                 ])
                 .allow_headers([axum::http::header::CONTENT_TYPE, axum::http::header::ACCEPT]),
         )
-        .with_state(state);
+        .with_state(state.clone());
 
-    // Bind to localhost only (security: not exposed to network)
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    // Bind to localhost only (security: never exposed to the network).
+    let addr = SocketAddr::from(([127, 0, 0, 1], app_port));
     tracing::info!("Llama Studio starting on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
+
+    // Stop the managed llama.cpp subprocess before the process exits.
+    let mut llama = state.llama.write().await;
+    if let Err(e) = llama.stop().await {
+        tracing::warn!(err = %e, "Error stopping llama.cpp during shutdown");
+    }
 
     Ok(())
 }

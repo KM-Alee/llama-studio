@@ -643,7 +643,6 @@ impl Database {
     }
 
     /// Delete a single message by ID.
-    #[allow(dead_code)]
     pub async fn delete_message(&self, msg_id: &str) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM messages WHERE id = ?1", [msg_id])?;

@@ -66,7 +66,7 @@ impl ConfigStore {
             db,
             config: tokio::sync::RwLock::new(config),
         };
-        // Persist defaults so the config table is never empty
+        // Persist defaults so the config table is never empty.
         store.persist().await?;
         Ok(store)
     }
@@ -74,10 +74,10 @@ impl ConfigStore {
     async fn load_from_db(db: &Database) -> Result<AppConfig> {
         let json = db.get_config().await?;
         if json.as_object().is_some_and(|o| o.is_empty()) {
-            // No config stored yet — use defaults
+            // No config stored yet — use defaults.
             return Ok(AppConfig::default());
         }
-        // Merge stored values on top of defaults so new fields get their defaults
+        // Merge stored values on top of defaults so new fields keep their defaults.
         let mut base = serde_json::to_value(AppConfig::default())?;
         if let (Some(base_obj), Some(stored_obj)) = (base.as_object_mut(), json.as_object()) {
             for (key, value) in stored_obj {
@@ -96,9 +96,29 @@ impl ConfigStore {
         Ok(self.config.read().await.clone())
     }
 
+    /// Validate a candidate config; returns a descriptive error on failure.
+    fn validate(cfg: &AppConfig) -> Result<()> {
+        if cfg.llama_server_port < 1024 {
+            anyhow::bail!("llama_server_port must be >= 1024");
+        }
+        if cfg.app_port < 1024 {
+            anyhow::bail!("app_port must be >= 1024");
+        }
+        if cfg.llama_server_port == cfg.app_port {
+            anyhow::bail!("llama_server_port and app_port must be different");
+        }
+        if cfg.models_directory.is_empty() {
+            anyhow::bail!("models_directory must not be empty");
+        }
+        if cfg.context_size == 0 {
+            anyhow::bail!("context_size must be > 0");
+        }
+        Ok(())
+    }
+
+    /// Merge `updates` into the current config, validate, and persist.
     pub async fn update(&self, updates: Value) -> Result<AppConfig> {
         let mut config = self.config.write().await;
-        // Merge updates into existing config
         let mut current = serde_json::to_value(&*config)?;
         if let (Some(current_obj), Some(updates_obj)) =
             (current.as_object_mut(), updates.as_object())
@@ -107,13 +127,19 @@ impl ConfigStore {
                 current_obj.insert(key.clone(), value.clone());
             }
         }
-        *config = serde_json::from_value(current)?;
+        let candidate: AppConfig = serde_json::from_value(current)?;
+        Self::validate(&candidate)?;
+        *config = candidate;
         self.db.set_config(&serde_json::to_value(&*config)?).await?;
         Ok(config.clone())
     }
 
     pub async fn get_llama_port(&self) -> u16 {
         self.config.read().await.llama_server_port
+    }
+
+    pub async fn get_app_port(&self) -> u16 {
+        self.config.read().await.app_port
     }
 
     pub async fn get_models_dir(&self) -> String {

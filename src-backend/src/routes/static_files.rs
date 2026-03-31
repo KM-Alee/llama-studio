@@ -12,7 +12,7 @@ pub async fn serve_spa(uri: Uri) -> Response {
         if uri.path().starts_with("/api/") {
             return (StatusCode::NOT_FOUND, "API route not found").into_response();
         }
-        return Html(
+        Html(
             r#"<!DOCTYPE html>
 <html>
 <head><title>Llama Studio - Dev Mode</title></head>
@@ -22,7 +22,7 @@ pub async fn serve_spa(uri: Uri) -> Response {
 </body>
 </html>"#,
         )
-        .into_response();
+        .into_response()
     }
 
     // In release mode, serve embedded files

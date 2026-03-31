@@ -21,6 +21,10 @@ pub fn router() -> Router<AppState> {
                 .delete(delete_conversation),
         )
         .route("/{id}/messages", get(get_messages).post(add_message))
+        .route(
+            "/{id}/messages/{msg_id}",
+            axum::routing::delete(delete_message_handler),
+        )
         .route("/{id}/export/json", get(export_json))
         .route("/{id}/export/markdown", get(export_markdown))
         .route("/{id}/fork", post(fork_conversation))
@@ -111,7 +115,7 @@ async fn search_conversations(
         .db
         .search_conversations(&params.q)
         .await
-        .map_err(|e| AppError::Internal(e))?;
+        .map_err(AppError::Internal)?;
     Ok(Json(json!({ "conversations": results })))
 }
 
@@ -119,11 +123,7 @@ async fn export_json(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> AppResult<Json<Value>> {
-    let convo_data = state
-        .sessions
-        .get(&id)
-        .await
-        .map_err(|e| AppError::Internal(e))?;
+    let convo_data = state.sessions.get(&id).await.map_err(AppError::Internal)?;
     Ok(Json(convo_data))
 }
 
@@ -131,21 +131,17 @@ async fn export_markdown(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> AppResult<String> {
-    let convo_data = state
-        .sessions
-        .get(&id)
-        .await
-        .map_err(|e| AppError::Internal(e))?;
+    let convo_data = state.sessions.get(&id).await.map_err(AppError::Internal)?;
 
     let title = convo_data["conversation"]["title"]
         .as_str()
         .unwrap_or("Chat");
     let mut md = format!("# {}\n\n", title);
 
-    if let Some(system) = convo_data["conversation"]["system_prompt"].as_str() {
-        if !system.is_empty() {
-            md.push_str(&format!("**System:** {}\n\n---\n\n", system));
-        }
+    if let Some(system) = convo_data["conversation"]["system_prompt"].as_str()
+        && !system.is_empty()
+    {
+        md.push_str(&format!("**System:** {}\n\n---\n\n", system));
     }
 
     if let Some(messages) = convo_data["messages"].as_array() {
@@ -179,6 +175,18 @@ async fn fork_conversation(
         .sessions
         .fork(&id, req.after_message_id.as_deref())
         .await
-        .map_err(|e| AppError::Internal(e))?;
+        .map_err(AppError::Internal)?;
     Ok(Json(json!(forked)))
+}
+
+async fn delete_message_handler(
+    State(state): State<AppState>,
+    Path((id, msg_id)): Path<(String, String)>,
+) -> AppResult<Json<Value>> {
+    state
+        .sessions
+        .delete_message(&id, &msg_id)
+        .await
+        .map_err(AppError::Internal)?;
+    Ok(Json(json!({ "deleted": true })))
 }

@@ -529,7 +529,7 @@ pub async fn create_chat_stream(
                         if data == "[DONE]" {
                             events.push(Ok(Event::default().data("[DONE]")));
                         } else {
-                            events.push(Ok(Event::default().data(data.to_string())));
+                            events.push(Ok(Event::default().data(data)));
                         }
                     }
                 }

@@ -17,12 +17,15 @@ interface ChatState {
   messages: ChatMessage[]
   isStreaming: boolean
   streamingContent: string
+  abortStreaming: (() => void) | null
   setActiveConversation: (id: string | null) => void
   setMessages: (messages: ChatMessage[]) => void
   addMessage: (message: ChatMessage) => void
   setStreaming: (isStreaming: boolean) => void
   appendStreamContent: (content: string) => void
   clearStreamContent: () => void
+  registerAbortStreaming: (abortStreaming: (() => void) | null) => void
+  cancelStreaming: () => void
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -30,6 +33,7 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   isStreaming: false,
   streamingContent: '',
+  abortStreaming: null,
   setActiveConversation: (id) => set({ activeConversationId: id }),
   setMessages: (messages) => set({ messages }),
   addMessage: (message) =>
@@ -38,4 +42,14 @@ export const useChatStore = create<ChatState>((set) => ({
   appendStreamContent: (content) =>
     set((state) => ({ streamingContent: state.streamingContent + content })),
   clearStreamContent: () => set({ streamingContent: '' }),
+  registerAbortStreaming: (abortStreaming) => set({ abortStreaming }),
+  cancelStreaming: () =>
+    set((state) => {
+      state.abortStreaming?.()
+      return {
+        isStreaming: false,
+        streamingContent: '',
+        abortStreaming: null,
+      }
+    }),
 }))
