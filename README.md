@@ -1,7 +1,7 @@
 # AI Studio
 
 <div align="center">
-  <img src="readme-pic.png" alt="AI Studio Interface" width="100%" style="border-radius: 12px; margin-bottom: 20px;">
+  <img src="readmepic.png" alt="AI Studio Interface" width="100%" style="border-radius: 12px; margin-bottom: 20px;">
   
   <p align="center">
     <strong>A high-performance, local-first web UI for llama.cpp.</strong>
