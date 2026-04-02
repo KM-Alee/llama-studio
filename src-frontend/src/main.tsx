@@ -23,7 +23,15 @@ createRoot(document.getElementById('root')!).render(
         <Toaster
           position="bottom-right"
           toastOptions={{
-            className: 'bg-surface text-text border border-border',
+            style: {
+              background: 'var(--color-surface)',
+              color: 'var(--color-text)',
+              border: '2px solid var(--color-border)',
+              borderRadius: '0',
+              fontSize: '13px',
+              fontFamily: 'var(--font-sans)',
+              boxShadow: '3px 3px 0 var(--color-border)',
+            },
             duration: 4000,
           }}
         />

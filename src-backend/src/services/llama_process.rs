@@ -57,6 +57,8 @@ pub struct LlamaProcessManager {
     child: Option<Child>,
     status: ServerStatus,
     current_model: Option<String>,
+    /// Port captured at start time; avoids using a stale config value after the server starts.
+    running_port: Option<u16>,
     /// Shared log ring-buffer — also written by the stderr-reader background task.
     logs: Arc<std::sync::Mutex<Vec<LogEntry>>>,
     log_tx: broadcast::Sender<LogEntry>,
@@ -72,6 +74,7 @@ impl LlamaProcessManager {
             child: None,
             status: ServerStatus::Stopped,
             current_model: None,
+            running_port: None,
             logs: Arc::new(std::sync::Mutex::new(Vec::new())),
             log_tx,
             custom_flags: Vec::new(),
@@ -86,7 +89,14 @@ impl LlamaProcessManager {
         self.current_model.as_deref()
     }
 
+    /// Returns the port the running llama.cpp server is bound to.
+    ///
+    /// Uses the port captured at `start()` time so that a subsequent config change cannot
+    /// silently redirect chat proxying to a port where no server is listening.
     pub async fn port(&self) -> u16 {
+        if let Some(port) = self.running_port {
+            return port;
+        }
         self.config.get_llama_port().await
     }
 
@@ -155,6 +165,10 @@ impl LlamaProcessManager {
 
         let model_path = self.resolve_model_path(model_id).await?;
         let config = self.config.get_all().await.map_err(AppError::Internal)?;
+
+        // Capture the port now so chat proxying always uses the port this process
+        // was actually launched on, even if the config changes later.
+        self.running_port = Some(config.llama_server_port);
 
         let llama_path = if config.llama_cpp_path.is_empty() {
             "llama-server".to_string()
@@ -236,6 +250,11 @@ impl LlamaProcessManager {
         ));
         tracing::info!(model = %model_path, binary = %llama_path, "Spawning llama.cpp server");
 
+        // kill_on_drop ensures the child process is SIGKILL'd if the Child handle is
+        // dropped (e.g., on panic or unexpected process exit), preventing llama.cpp from
+        // becoming an orphan that holds GPU/RAM after AI Studio exits.
+        cmd.kill_on_drop(true);
+
         match cmd.spawn() {
             Ok(mut child) => {
                 // Capture stderr for log streaming
@@ -304,6 +323,7 @@ impl LlamaProcessManager {
 
         self.status = ServerStatus::Stopped;
         self.current_model = None;
+        self.running_port = None;
         self.push_log("llama.cpp server stopped".to_string());
         tracing::info!("llama.cpp server stopped");
         Ok(())
@@ -507,6 +527,23 @@ pub async fn create_chat_stream(
     let response = client.post(&url).json(&body).send().await.map_err(|e| {
         AppError::Internal(anyhow::anyhow!("Failed to connect to llama.cpp: {}", e))
     })?;
+
+    // Propagate any error status from llama.cpp as a 502 so the frontend can
+    // surface a meaningful message rather than receiving a silent empty stream.
+    if !response.status().is_success() {
+        let status_code = response.status();
+        let body_text = response.text().await.unwrap_or_default();
+        let err_msg = serde_json::from_str::<serde_json::Value>(&body_text)
+            .ok()
+            .and_then(|v| {
+                v.get("error")
+                    .and_then(|e| e.as_str())
+                    .map(String::from)
+            })
+            .unwrap_or_else(|| format!("llama.cpp returned status {status_code}"));
+        tracing::error!(status = %status_code, body = %body_text, "llama.cpp completions error");
+        return Err(AppError::UpstreamError(err_msg));
+    }
 
     let byte_stream = response.bytes_stream();
 

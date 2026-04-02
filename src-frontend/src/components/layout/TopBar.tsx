@@ -100,51 +100,62 @@ export function TopBar() {
   const exportBaseName = slugifyFilename(currentConversation?.title ?? 'conversation')
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-surface px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b-2 border-border bg-surface px-4">
       <div className="flex items-center gap-3">
         {!sidebarOpen && (
-          <button
-            onClick={toggleSidebar}
-            className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
-            title="Open sidebar"
-            aria-label="Open sidebar"
-          >
-            <PanelLeft className="w-4 h-4" />
-          </button>
+          <>
+            <div className="flex items-center gap-2">
+              <img
+                src="/logo.png"
+                alt=""
+                aria-hidden="true"
+                className="h-8 w-8 shrink-0 border-2 border-border bg-surface-dim object-cover"
+              />
+              <span className="hidden font-mono text-xs font-black uppercase tracking-[0.2em] text-text sm:inline">
+                LLAMA STUDIO
+              </span>
+            </div>
+            <button
+              onClick={toggleSidebar}
+              className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+              title="Open sidebar"
+              aria-label="Open sidebar"
+            >
+              <PanelLeft className="w-4 h-4" />
+            </button>
+          </>
         )}
 
-        <div className="flex items-center gap-2 text-sm text-text-muted">
-          <div className={cn('w-2 h-2 rounded-full', statusColor)} />
-          <span>{statusLabel}</span>
+        <div className="flex items-center gap-2">
+          <div className={cn('w-2 h-2', statusColor)} />
+          <span className="font-mono text-xs uppercase tracking-widest text-text-muted">{statusLabel}</span>
         </div>
 
-        <div className="mx-0.5 h-5 w-px bg-border" />
+        <div className="h-4 w-px bg-border" />
 
         <ModelSelector />
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5">
         {activeConversationId && (
           <>
             <button
               onClick={() => setRenameOpen(true)}
-              className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
+              className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
               title="Rename conversation"
-              aria-label="Rename conversation"
             >
               <Pencil className="w-4 h-4" />
             </button>
             <div className="relative">
               <button
                 onClick={() => setShowExport(!showExport)}
-                className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
+                className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
                 title="Export"
-                aria-label="Export conversation"
               >
                 <Download className="w-4 h-4" />
               </button>
               {showExport && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-surface py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden border-2 border-border bg-surface py-1 shadow-[2px_2px_0px_var(--color-border)]">
                   <button
                     onClick={async () => {
                       try {
@@ -200,21 +211,19 @@ export function TopBar() {
                   toast.error('Fork failed')
                 }
               }}
-              className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
+              className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
               title="Fork conversation"
-              aria-label="Fork conversation"
             >
               <GitFork className="w-4 h-4" />
             </button>
-            <div className="mx-0.5 h-5 w-px bg-border" />
+            <div className="mx-1 h-4 w-px bg-border" />
           </>
         )}
 
         <button
           onClick={() => setCommandPaletteOpen(true)}
-          className="rounded-lg p-2 text-text-muted transition-colors hover:bg-surface-hover"
+          className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
           title="Search (Ctrl+K)"
-          aria-label="Open command palette"
         >
           <Search className="w-4 h-4" />
         </button>
@@ -222,13 +231,13 @@ export function TopBar() {
         <button
           onClick={toggleProfile}
           className={cn(
-            'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+            'flex items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-widest transition-colors',
             profile === 'advanced'
-              ? 'bg-primary/10 text-primary'
-              : 'text-text-muted hover:bg-surface-hover',
+              ? 'border-primary bg-primary/8 text-primary'
+              : 'border-border text-text-muted hover:border-text-muted hover:bg-surface-hover hover:text-text',
           )}
         >
-          <Zap className="w-3.5 h-3.5" />
+          <Zap className="w-3 h-3" />
           {profile === 'normal' ? 'Normal' : 'Advanced'}
         </button>
       </div>

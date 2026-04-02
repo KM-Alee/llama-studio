@@ -285,7 +285,10 @@ export async function* streamChat(
     signal,
   })
 
-  if (!res.ok) throw new Error('Chat request failed')
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => null) as { error?: string } | null
+    throw new Error(errBody?.error ?? 'Chat request failed')
+  }
   if (!res.body) throw new Error('No response body')
 
   const reader = res.body.getReader()

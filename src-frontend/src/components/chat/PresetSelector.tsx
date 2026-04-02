@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Sliders, ChevronDown } from 'lucide-react'
 import { getPresets, type Preset } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useCustomTemplates } from '@/lib/customTemplates'
 
 interface Props {
   selectedPresetId: string | null
@@ -12,13 +13,14 @@ interface Props {
 export function PresetSelector({ selectedPresetId, onSelect }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const { customTemplates } = useCustomTemplates()
 
   const { data } = useQuery({
     queryKey: ['presets'],
     queryFn: getPresets,
   })
 
-  const presets = data?.presets ?? []
+  const presets = [...(data?.presets ?? []), ...customTemplates]
   const selectedPreset = presets.find((preset: Preset) => preset.id === selectedPresetId)
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-8 items-center gap-1.5 rounded-lg border border-border px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-hover"
+        className="flex h-8 items-center gap-1.5 border border-border px-2 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-dim"
       >
         <Sliders className="w-3.5 h-3.5" />
         <span className="max-w-[60px] truncate">{selectedPreset ? selectedPreset.name : 'Default'}</span>
@@ -44,23 +46,23 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 z-50 mb-1.5 w-60 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
+        <div className="absolute bottom-full left-0 z-50 mb-1.5 w-60 overflow-hidden border-2 border-border bg-surface shadow-[4px_4px_0px_var(--color-border)]">
           <div className="py-1">
             <button
               onClick={() => {
                 onSelect(null)
                 setOpen(false)
               }}
-              className={cn(
-                'w-full px-4 py-2.5 text-left text-sm transition-colors',
-                !selectedPresetId
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-text-secondary hover:bg-surface-hover',
-              )}
-            >
-              <div className="font-medium">Default</div>
-              <p className="mt-0.5 text-xs text-text-muted">Standard settings</p>
-            </button>
+                className={cn(
+                  'w-full px-4 py-2.5 text-left text-sm transition-colors',
+                  !selectedPresetId
+                    ? 'border-l-2 border-l-primary bg-surface-dim text-primary'
+                    : 'border-l-2 border-l-transparent text-text-secondary hover:bg-surface-dim',
+                )}
+              >
+                <div className="font-medium">Default</div>
+                <p className="mt-0.5 text-xs text-text-muted">Standard settings</p>
+              </button>
             {presets.map((preset: Preset) => (
               <button
                 key={preset.id}
@@ -71,11 +73,18 @@ export function PresetSelector({ selectedPresetId, onSelect }: Props) {
                 className={cn(
                   'w-full px-4 py-2.5 text-left text-sm transition-colors',
                   selectedPresetId === preset.id
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-text-secondary hover:bg-surface-hover',
+                    ? 'border-l-2 border-l-primary bg-surface-dim text-primary'
+                    : 'border-l-2 border-l-transparent text-text-secondary hover:bg-surface-dim',
                 )}
               >
-                <div className="font-medium">{preset.name}</div>
+                <div className="flex items-center gap-1.5 font-medium">
+                  <span>{preset.name}</span>
+                  {!preset.is_builtin && (
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-text-muted">
+                      custom
+                    </span>
+                  )}
+                </div>
                 {preset.description && (
                   <p className="mt-0.5 line-clamp-1 text-xs text-text-muted">
                     {preset.description}

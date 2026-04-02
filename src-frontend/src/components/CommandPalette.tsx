@@ -148,12 +148,12 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]" onClick={onClose}>
-      <div className="fixed inset-0 bg-black/50" />
+      <div className="fixed inset-0 bg-black/60" />
       <div
-        className="relative w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl overflow-hidden"
+        className="relative w-full max-w-lg bg-surface border-2 border-border shadow-[6px_6px_0px_var(--color-border)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+        <div className="flex items-center gap-3 px-4 py-3 border-b-2 border-border">
           <Search className="w-4 h-4 text-text-muted shrink-0" />
           <input
             ref={inputRef}
@@ -167,14 +167,14 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             placeholder="Type a command or search conversations..."
             className="flex-1 bg-transparent text-text text-sm outline-none placeholder-text-muted"
           />
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] text-text-muted border border-border rounded bg-surface-dim">
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-text-muted border border-border bg-surface-dim">
             ESC
           </kbd>
         </div>
 
         <div className="max-h-72 overflow-y-auto py-1">
           {allCommands.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-text-muted">
+            <div className="px-4 py-6 text-center text-sm text-text-muted font-mono">
               No results found
             </div>
           ) : (
@@ -182,15 +182,15 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               <button
                 key={cmd.id}
                 onClick={cmd.action}
-                className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-left transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm text-left transition-colors ${
                   i === selectedIndex
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-text hover:bg-surface-hover'
+                    ? 'border-l-2 border-l-primary bg-surface-dim text-primary'
+                    : 'border-l-2 border-l-transparent text-text hover:bg-surface-dim'
                 }`}
               >
                 <span className="text-text-muted">{cmd.icon}</span>
                 <span className="flex-1">{cmd.label}</span>
-                <span className="text-[10px] text-text-muted">{cmd.category}</span>
+                <span className="font-mono text-[9px] uppercase tracking-widest text-text-muted">{cmd.category}</span>
               </button>
             ))
           )}

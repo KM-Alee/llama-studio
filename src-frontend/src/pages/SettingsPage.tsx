@@ -29,7 +29,7 @@ const DEFAULT_FORM: AppConfig = {
 
 function SettingsCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <section className="rounded-xl border border-border bg-surface-dim p-5">
+    <section className="border-2 border-border bg-surface-dim p-5">
       <h2 className="mb-0.5 text-sm font-bold text-text">{title}</h2>
       {description && <p className="mb-4 text-xs text-text-muted">{description}</p>}
       {!description && <div className="mb-4" />}
@@ -71,7 +71,7 @@ function Toggle({
         onClick={() => onChange(!checked)}
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-primary' : 'bg-border'}`}
       >
-        <span className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`} />
+        <span className={`absolute left-0.5 top-0.5 h-4 w-4 bg-white shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`} />
       </button>
       <div>
         <span className="text-sm font-medium text-text">{label}</span>
@@ -132,19 +132,19 @@ function SettingsEditor({
     toast.success(`Applied "${preset.name}" preset`)
   }
 
-  const inputClass = 'w-full rounded-xl border border-border bg-surface px-3 py-2.5 text-sm text-text outline-none transition-colors placeholder-text-muted focus:border-primary'
+  const inputClass = 'w-full border-2 border-border bg-surface px-3 py-2.5 text-sm text-text outline-none transition-colors placeholder-text-muted focus:border-primary'
 
   return (
     <div className="max-w-2xl mx-auto p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-text">Settings</h1>
-          <p className="mt-1 text-sm text-text-muted">Configure AI Studio and llama.cpp</p>
+          <p className="mt-1 text-sm text-text-muted">Configure Llama Studio and llama.cpp</p>
         </div>
         <button
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
-          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+          className="flex items-center gap-2 border-2 border-primary bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           Save Changes
@@ -152,7 +152,7 @@ function SettingsEditor({
       </div>
 
       <div className="space-y-4">
-        <SettingsCard title="Appearance" description="Customize how AI Studio looks">
+        <SettingsCard title="Appearance" description="Customize how Llama Studio looks">
           <label className="block">
             <FieldLabel>Theme</FieldLabel>
             <select
@@ -167,10 +167,10 @@ function SettingsEditor({
           </label>
         </SettingsCard>
 
-        <SettingsCard title="AI Studio" description="Frontend and server wiring">
+        <SettingsCard title="Llama Studio" description="Frontend and server wiring">
           <div className="space-y-4">
             <label className="block">
-              <FieldLabel hint="HTTP port used by the AI Studio backend. Restart the app after changing it.">App Port</FieldLabel>
+              <FieldLabel hint="HTTP port used by the Llama Studio backend. Restart the app after changing it.">App Port</FieldLabel>
               <input
                 type="number"
                 value={form.app_port}
@@ -220,9 +220,9 @@ function SettingsEditor({
               <button
                 key={preset.name}
                 onClick={() => applyPreset(preset)}
-                className="flex items-center gap-3 rounded-xl border border-border p-3 text-left transition-colors hover:border-primary/30 hover:bg-surface-hover"
+                className="flex items-center gap-3 border border-border p-3 text-left transition-colors hover:border-primary hover:bg-surface-hover"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface">
+                <div className="flex h-8 w-8 items-center justify-center border border-border bg-surface">
                   <preset.icon className="h-4 w-4 text-text-secondary" />
                 </div>
                 <div>
@@ -384,7 +384,7 @@ function SettingsEditor({
           <SettingsCard title="Hardware" description="Detected system specifications">
             <div className="grid grid-cols-2 gap-3">
               {hardware.cpu_cores && (
-                <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4">
+                <div className="flex items-center gap-3 border border-border bg-surface p-4">
                   <Cpu className="h-5 w-5 shrink-0 text-text-muted" />
                   <div>
                     <div className="text-sm font-semibold text-text">{hardware.cpu_cores} cores</div>
@@ -393,7 +393,7 @@ function SettingsEditor({
                 </div>
               )}
               {hardware.total_ram_bytes && (
-                <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-4">
+                <div className="flex items-center gap-3 border border-border bg-surface p-4">
                   <HardDrive className="h-5 w-5 shrink-0 text-text-muted" />
                   <div>
                     <div className="text-sm font-semibold text-text">{formatBytes(hardware.total_ram_bytes)}</div>

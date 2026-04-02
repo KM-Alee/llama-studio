@@ -30,19 +30,19 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
       className="fixed inset-0 z-50 flex items-center justify-center"
       onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
     >
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 bg-black/40" />
       <div
         className={cn(
-          'relative bg-surface border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-150',
+          'relative w-full max-w-md mx-4 border-2 border-border bg-surface shadow-[4px_4px_0px_var(--color-border)]',
           className
         )}
       >
         {title && (
-          <div className="flex items-center justify-between px-5 pt-5 pb-0">
-            <h2 className="text-base font-bold text-text">{title}</h2>
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <h2 className="text-sm font-bold text-text">{title}</h2>
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+              className="p-1.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
             >
               <X className="w-4 h-4" />
             </button>
@@ -74,17 +74,17 @@ export function ConfirmModal({
       <div className="flex justify-end gap-2">
         <button
           onClick={onClose}
-          className="px-4 py-2 rounded-xl text-sm font-medium text-text-secondary hover:bg-surface-hover transition-colors"
+          className="border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover"
         >
           Cancel
         </button>
         <button
           onClick={() => { onConfirm(); onClose() }}
           className={cn(
-            'px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors',
+            'border-2 px-4 py-2 text-sm font-semibold text-white transition-colors',
             confirmVariant === 'danger'
-              ? 'bg-error hover:bg-error/90'
-              : 'bg-primary hover:bg-primary-hover'
+              ? 'border-error bg-error hover:bg-error/90'
+              : 'border-primary bg-primary hover:bg-primary-hover'
           )}
         >
           {confirmLabel}
@@ -134,18 +134,18 @@ export function InputModal({
         defaultValue={initialValue}
         placeholder={placeholder}
         onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
-        className="w-full px-3 py-2.5 rounded-xl bg-surface-dim border border-border text-text text-sm focus:border-primary outline-none placeholder-text-muted"
+        className="w-full border-2 border-border bg-surface-dim px-3 py-2.5 text-sm text-text outline-none transition-colors placeholder-text-muted focus:border-primary"
       />
       <div className="flex justify-end gap-2 mt-4">
         <button
           onClick={onClose}
-          className="px-4 py-2 rounded-xl text-sm font-medium text-text-secondary hover:bg-surface-hover transition-colors"
+          className="border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
-          className="px-4 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary-hover transition-colors"
+          className="border-2 border-primary bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
         >
           {submitLabel}
         </button>

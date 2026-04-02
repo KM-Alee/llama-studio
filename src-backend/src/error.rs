@@ -22,6 +22,9 @@ pub enum AppError {
 
     #[error("Server already running")]
     ServerAlreadyRunning,
+
+    #[error("Upstream error: {0}")]
+    UpstreamError(String),
 }
 
 impl IntoResponse for AppError {
@@ -51,6 +54,7 @@ impl IntoResponse for AppError {
                 StatusCode::CONFLICT,
                 "llama.cpp server is already running".to_string(),
             ),
+            AppError::UpstreamError(msg) => (StatusCode::BAD_GATEWAY, msg.clone()),
         };
 
         let body = json!({ "error": message });

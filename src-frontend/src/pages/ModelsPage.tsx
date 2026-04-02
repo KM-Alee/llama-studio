@@ -160,7 +160,7 @@ export function ModelsPage() {
             <button
               onClick={() => navigate(models[0] ? `/models/analytics/${selectedModel?.id ?? models[0].id}` : '/models/analytics')}
               disabled={models.length === 0}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-text-secondary hover:bg-surface-hover text-sm font-medium transition-colors disabled:opacity-40"
+              className="flex items-center gap-2 px-4 py-2  border border-border text-text-secondary hover:bg-surface-hover text-sm font-medium transition-colors disabled:opacity-40"
             >
               <Activity className="w-4 h-4" />
               Analytics
@@ -168,7 +168,7 @@ export function ModelsPage() {
             {serverStatus === 'running' && (
               <button
                 onClick={() => stopMutation.mutate()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-error hover:bg-error/10 text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2  text-error hover:bg-error/10 text-sm font-medium transition-colors"
               >
                 <Square className="w-3.5 h-3.5" />
                 Stop Server
@@ -176,7 +176,7 @@ export function ModelsPage() {
             )}
             <button
               onClick={() => setImportModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-text-secondary hover:bg-surface-hover text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-4 py-2  border border-border text-text-secondary hover:bg-surface-hover text-sm font-medium transition-colors"
             >
               <FolderOpen className="w-4 h-4" />
               Import
@@ -184,7 +184,7 @@ export function ModelsPage() {
             <button
               onClick={() => scanMutation.mutate()}
               disabled={scanMutation.isPending}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary-hover text-sm font-medium transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2  bg-primary text-white hover:bg-primary-hover text-sm font-medium transition-colors disabled:opacity-50"
             >
               <Scan className="w-4 h-4" />
               {scanMutation.isPending ? 'Scanning...' : 'Scan'}
@@ -217,7 +217,7 @@ export function ModelsPage() {
               <button
                 onClick={() => setViewMode('list')}
                 className={cn(
-                  'p-1.5 rounded-lg transition-colors',
+                  'p-1.5  transition-colors',
                   viewMode === 'list' ? 'text-text bg-surface-hover' : 'text-text-muted hover:text-text-secondary'
                 )}
               >
@@ -226,7 +226,7 @@ export function ModelsPage() {
               <button
                 onClick={() => setViewMode('grid')}
                 className={cn(
-                  'p-1.5 rounded-lg transition-colors',
+                  'p-1.5  transition-colors',
                   viewMode === 'grid' ? 'text-text bg-surface-hover' : 'text-text-muted hover:text-text-secondary'
                 )}
               >
@@ -244,7 +244,7 @@ export function ModelsPage() {
           className="relative min-h-[400px]"
         >
           {dragOver && (
-            <div className="absolute inset-0 border-2 border-dashed border-primary/40 bg-primary/5 rounded-xl z-10 flex items-center justify-center">
+            <div className="absolute inset-0 border-2 border-dashed border-primary/40 bg-primary/5  z-10 flex items-center justify-center">
               <div className="text-center">
                 <FileDown className="w-10 h-10 text-primary/60 mx-auto mb-2" />
                 <p className="text-sm font-medium text-primary">Drop .gguf files here</p>
@@ -300,7 +300,7 @@ export function ModelsPage() {
           {/* HuggingFace Browse Tab */}
           {activeTab === 'browse' && (
             <div>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-dim border border-border mb-5">
+              <div className="flex items-center gap-3 px-4 py-3  bg-surface-dim border border-border mb-5">
                 <Search className="w-4 h-4 text-text-muted" />
                 <input
                   type="text"
@@ -310,7 +310,7 @@ export function ModelsPage() {
                   className="flex-1 bg-transparent outline-none text-text text-sm placeholder-text-muted"
                 />
                 {hfSearching && (
-                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-primary/30 border-t-primary  animate-spin" />
                 )}
               </div>
 
@@ -435,13 +435,13 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
   const visibleTags = model.tags.filter((tag) => !['gguf', 'text-generation', 'conversational'].includes(tag)).slice(0, 4)
 
   return (
-    <div className="rounded-xl border border-border bg-surface-dim overflow-hidden transition-colors hover:border-border/80">
+    <div className=" border border-border bg-surface-dim overflow-hidden transition-colors hover:border-border/80">
       {/* Model header — always visible */}
       <div
         className="flex items-center gap-4 p-4 cursor-pointer hover:bg-surface-hover/50 transition-colors"
         onClick={onToggle}
       >
-        <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center shrink-0">
+        <div className="w-10 h-10  bg-warning/10 flex items-center justify-center shrink-0">
           <Box className="w-5 h-5 text-warning" />
         </div>
         <div className="flex-1 min-w-0">
@@ -463,7 +463,7 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
               {visibleTags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-text-muted"
+                  className=" border border-border bg-surface px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-text-muted"
                 >
                   {tag.replace(/^base_model:/, '')}
                 </span>
@@ -477,7 +477,7 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface border border-border text-text-secondary hover:text-text text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5  bg-surface border border-border text-text-secondary hover:text-text text-xs font-medium transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             View
@@ -493,16 +493,16 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
       {isExpanded && (
         <div className="border-t border-border bg-surface">
           <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 text-xs text-text-muted">
-            <span className="rounded-full bg-surface-dim px-2 py-1 font-medium text-text-secondary">
+            <span className=" bg-surface-dim px-2 py-1 font-medium text-text-secondary">
               {ggufCount} GGUF files
             </span>
-            <span className="rounded-full bg-surface-dim px-2 py-1 font-medium text-text-secondary">
+            <span className=" bg-surface-dim px-2 py-1 font-medium text-text-secondary">
               {totalSize > 0 ? formatBytes(totalSize) : 'Size unavailable'} total
             </span>
           </div>
           {filesLoading ? (
             <div className="p-4 text-center text-sm text-text-muted">
-              <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-2" />
+              <div className="w-5 h-5 border-2 border-primary/30 border-t-primary  animate-spin mx-auto mb-2" />
               Loading files...
             </div>
           ) : files.length === 0 ? (
@@ -532,7 +532,7 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
                     </div>
                     <button
                       onClick={() => handleDownload(file)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-medium transition-colors shrink-0"
+                      className="flex items-center gap-1.5 px-3 py-1.5  bg-primary text-white hover:bg-primary-hover text-xs font-medium transition-colors shrink-0"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Download
@@ -556,12 +556,12 @@ function ModelCard({ model, isActive, serverStatus, onSelect, onLoad, onDelete }
     <div
       onClick={onSelect}
       className={cn(
-        'p-4 rounded-xl border cursor-pointer transition-colors',
+        'p-4  border cursor-pointer transition-colors',
         isActive ? 'border-success/50 bg-success/5' : 'border-border hover:bg-surface-hover'
       )}
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="w-9 h-9 rounded-xl bg-surface-dim flex items-center justify-center">
+        <div className="w-9 h-9  bg-surface-dim flex items-center justify-center">
           <HardDrive className="w-4 h-4 text-text-muted" />
         </div>
         {isActive && (
@@ -582,14 +582,14 @@ function ModelCard({ model, isActive, serverStatus, onSelect, onLoad, onDelete }
         <button
           onClick={(e) => { e.stopPropagation(); onLoad() }}
           disabled={serverStatus !== 'stopped'}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-success/10 text-success hover:bg-success/20 text-sm font-medium transition-colors disabled:opacity-30"
+          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2  bg-success/10 text-success hover:bg-success/20 text-sm font-medium transition-colors disabled:opacity-30"
         >
           <Play className="w-3.5 h-3.5" />
           Load
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="p-2 rounded-lg text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+          className="p-2  text-text-muted hover:text-error hover:bg-error/10 transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -606,11 +606,11 @@ function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }:
     <div
       onClick={onSelect}
       className={cn(
-        'flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-colors group',
+        'flex items-center gap-3 p-3.5  border cursor-pointer transition-colors group',
         isActive ? 'border-success/50 bg-success/5' : 'border-border hover:bg-surface-hover'
       )}
     >
-      <div className="w-9 h-9 rounded-xl bg-surface-dim flex items-center justify-center shrink-0">
+      <div className="w-9 h-9  bg-surface-dim flex items-center justify-center shrink-0">
         <HardDrive className="w-4 h-4 text-text-muted" />
       </div>
       <div className="flex-1 min-w-0">
@@ -634,14 +634,14 @@ function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }:
         <button
           onClick={(e) => { e.stopPropagation(); onLoad() }}
           disabled={serverStatus !== 'stopped'}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success/10 text-success hover:bg-success/20 text-sm font-medium transition-colors disabled:opacity-30"
+          className="flex items-center gap-1.5 px-3 py-1.5  bg-success/10 text-success hover:bg-success/20 text-sm font-medium transition-colors disabled:opacity-30"
         >
           <Play className="w-3.5 h-3.5" />
           Load
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete() }}
-          className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all"
+          className="p-1.5  text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -672,7 +672,7 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
     <div className="w-[24rem] border-l border-border bg-surface p-5 overflow-y-auto shrink-0">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-sm font-bold text-text">Details</h2>
-        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted">
+        <button onClick={onClose} className="p-1.5  hover:bg-surface-hover text-text-muted">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -680,7 +680,7 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
         <DetailField label="Name" value={resolvedModel.name} />
         <div>
           <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">Path</label>
-          <p className="text-xs text-text-secondary mt-1.5 break-all font-mono leading-relaxed bg-surface-dim rounded-lg p-2">{resolvedModel.path}</p>
+          <p className="text-xs text-text-secondary mt-1.5 break-all font-mono leading-relaxed bg-surface-dim  p-2">{resolvedModel.path}</p>
         </div>
         <DetailField label="Size" value={formatBytes(resolvedModel.size_bytes)} />
         <DetailField label="VRAM" value={estimateVram(resolvedModel.size_bytes, resolvedModel.quantization ?? undefined)} />
@@ -693,7 +693,7 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
         {resolvedModel.last_used && <DetailField label="Last Used" value={formatDate(resolvedModel.last_used)} />}
         <DetailField label="Added" value={new Date(resolvedModel.added_at).toLocaleDateString()} />
 
-        <div className="rounded-2xl border border-border bg-surface-dim p-4">
+        <div className=" border border-border bg-surface-dim p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">llama.cpp Inspection</h3>
             {inspectionLoading && <span className="text-[11px] text-text-muted">Inspecting…</span>}
@@ -706,7 +706,7 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
                 <InfoPill icon={<Cpu className="h-3.5 w-3.5" />} label="Layers" value={inspection.n_layer != null ? String(inspection.n_layer) : 'Unknown'} />
                 <InfoPill icon={<Clock3 className="h-3.5 w-3.5" />} label="Vocab" value={inspection.vocab_size != null ? inspection.vocab_size.toLocaleString() : 'Unknown'} />
               </div>
-              <div className="rounded-xl bg-surface px-3 py-2 text-[11px] text-text-muted">
+              <div className=" bg-surface px-3 py-2 text-[11px] text-text-muted">
                 <div className="font-semibold text-text-secondary">Command</div>
                 <div className="mt-1 break-all font-mono">{inspection.command}</div>
               </div>
@@ -720,7 +720,7 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
         </div>
 
         {analytics && (
-          <div className="rounded-2xl border border-border bg-surface-dim p-4">
+          <div className=" border border-border bg-surface-dim p-4">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">Usage Snapshot</h3>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <InfoPill icon={<Activity className="h-3.5 w-3.5" />} label="Chats" value={String(analytics.conversation_count)} />
@@ -734,7 +734,7 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
         <div className="pt-4 border-t border-border space-y-2">
           <button
             onClick={onOpenAnalytics}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border text-text hover:bg-surface-hover text-sm font-semibold transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5  border border-border text-text hover:bg-surface-hover text-sm font-semibold transition-colors"
           >
             <Activity className="w-4 h-4" />
             Open Analytics
@@ -742,7 +742,7 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
           <button
             onClick={onLoad}
             disabled={serverStatus !== 'stopped' || isActive}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-success text-white hover:bg-success/90 text-sm font-semibold transition-colors disabled:opacity-30"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5  bg-success text-white hover:bg-success/90 text-sm font-semibold transition-colors disabled:opacity-30"
           >
             <Play className="w-4 h-4" />
             {isActive ? 'Active' : 'Load Model'}
@@ -755,7 +755,7 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
 
 function InfoPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-surface px-3 py-2 text-text-secondary">
+    <div className=" bg-surface px-3 py-2 text-text-secondary">
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-text-muted">
         {icon}
         <span>{label}</span>
@@ -781,8 +781,8 @@ function DownloadRow({ download }: { download: DownloadInfo }) {
     : 0
 
   return (
-    <div className="flex items-center gap-3 p-4 rounded-xl border border-border">
-      <div className="w-10 h-10 rounded-xl bg-surface-dim flex items-center justify-center shrink-0">
+    <div className="flex items-center gap-3 p-4  border border-border">
+      <div className="w-10 h-10  bg-surface-dim flex items-center justify-center shrink-0">
         {download.status === 'failed'
           ? <AlertCircle className="w-5 h-5 text-error" />
           : <Download className="w-5 h-5 text-text-muted" />}
@@ -802,9 +802,9 @@ function DownloadRow({ download }: { download: DownloadInfo }) {
           {download.status === 'cancelled' && <span>Cancelled</span>}
         </div>
         {download.status === 'downloading' && (
-          <div className="mt-2 h-1.5 bg-border rounded-full overflow-hidden">
+          <div className="mt-2 h-1.5 bg-border  overflow-hidden">
             <div
-              className="h-full bg-primary rounded-full transition-all duration-300"
+              className="h-full bg-primary  transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -813,7 +813,7 @@ function DownloadRow({ download }: { download: DownloadInfo }) {
       {(download.status === 'downloading' || download.status === 'queued') && (
         <button
           onClick={() => cancelDownload(download.id)}
-          className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/10 transition-colors shrink-0"
+          className="p-1.5  text-text-muted hover:text-error hover:bg-error/10 transition-colors shrink-0"
         >
           <X className="w-4 h-4" />
         </button>

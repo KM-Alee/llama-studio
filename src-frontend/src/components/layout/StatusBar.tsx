@@ -24,25 +24,27 @@ export function StatusBar() {
   const primaryDownload = activeDownloads[0]
 
   return (
-    <footer className="flex h-7 shrink-0 select-none items-center justify-between border-t border-border bg-surface-dim px-4 text-xs text-text-muted">
-      <div className="flex items-center gap-3 overflow-hidden">
-        <span className="truncate">{activeModel ? activeModel.name : 'No model loaded'}</span>
+    <footer className="flex h-7 shrink-0 select-none items-center justify-between border-t border-border bg-surface-dim px-4">
+      <div className="flex items-center gap-4 overflow-hidden">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted truncate">
+          {activeModel ? activeModel.name : 'No model loaded'}
+        </span>
         {activeModel && (
-          <span className="text-text-muted/60">{formatBytes(activeModel.size_bytes)}</span>
+          <span className="font-mono text-[10px] text-text-muted/50">{formatBytes(activeModel.size_bytes)}</span>
         )}
         {serverStatus === 'running' && (
-          <span className="font-medium text-success">● Connected</span>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-success">● Live</span>
         )}
         {primaryDownload && (
-          <span className="truncate text-primary">
-            Downloading {primaryDownload.filename} · {Math.round(primaryDownload.progress)}%
+          <span className="font-mono text-[10px] uppercase tracking-wider text-primary truncate">
+            ↓ {primaryDownload.filename} {Math.round(primaryDownload.progress)}%
           </span>
         )}
       </div>
       <div className="flex items-center gap-3">
-        <kbd className="rounded border border-border bg-surface-dim px-1.5 py-0.5 text-[10px] text-text-muted">Ctrl+K</kbd>
-        <span className="capitalize font-medium">{profile}</span>
-        <span className="text-text-muted/60">v0.1.0</span>
+        <kbd className="border border-border bg-surface px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-text-muted">Ctrl+K</kbd>
+        <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted/60">{profile}</span>
+        <span className="font-mono text-[10px] text-text-muted/40">v0.1.0</span>
       </div>
     </footer>
   )

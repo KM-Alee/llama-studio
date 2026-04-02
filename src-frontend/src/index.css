@@ -5,44 +5,43 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Warm terracotta accent — distinctive, no AI slop */
   --color-primary: #c2553a;
   --color-primary-hover: #a8472f;
-  --color-primary-light: #d4755c;
-  --color-surface: #fafaf9;
-  --color-surface-dim: #f0f0ed;
-  --color-surface-hover: #e6e6e2;
-  --color-border: #d8d8d2;
-  --color-text: #1c1c1a;
-  --color-text-secondary: #55554f;
-  --color-text-muted: #8a8a82;
-  --color-success: #3a7d53;
-  --color-warning: #b8860b;
-  --color-error: #c23b3b;
-  --color-user-bubble: #f5f0ec;
+  --color-primary-light: #d47060;
+  --color-surface: #fafaf8;
+  --color-surface-dim: #f0f0eb;
+  --color-surface-hover: #e5e5de;
+  --color-border: #c4c4bc;
+  --color-text: #181816;
+  --color-text-secondary: #46463f;
+  --color-text-muted: #82827a;
+  --color-success: #2e6e44;
+  --color-warning: #9a7200;
+  --color-error: #b83232;
+  --color-user-bubble: #ede9e4;
   --color-assistant-bubble: transparent;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
-/* Dark theme — warm charcoal with subtle depth */
 .dark {
-  --color-surface: #131311;
-  --color-surface-dim: #1b1b18;
-  --color-surface-hover: #272723;
-  --color-border: #333330;
-  --color-text: #e8e8dc;
-  --color-text-secondary: #a5a59a;
-  --color-text-muted: #6b6b60;
-  --color-user-bubble: #1f1e1a;
+  --color-surface: #0f0f0e;
+  --color-surface-dim: #161614;
+  --color-surface-hover: #1e1e1b;
+  --color-border: #2c2c28;
+  --color-text: #e0e0d2;
+  --color-text-secondary: #96968c;
+  --color-text-muted: #5a5a52;
+  --color-user-bubble: #1c1c18;
   --color-assistant-bubble: transparent;
 }
 
 html {
   font-family: var(--font-sans);
-  font-size: 20px;
+  font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
 }
 
 body {
@@ -51,38 +50,42 @@ body {
   color: var(--color-text);
 }
 
-/* Custom scrollbar — subtle & warm */
+/* hljs resets — our code block container owns the background */
+.hljs {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+/* Brutalist scrollbar — no border-radius */
 ::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border-radius: 4px;
+  border-radius: 0;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
 }
 
-/* Focus ring utility */
+/* Focus ring */
 *:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 1px;
-  border-radius: 4px;
 }
 
-/* Range input styling */
+/* Range inputs */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 5px;
+  height: 4px;
   background: var(--color-border);
-  border-radius: 3px;
   outline: none;
-  transition: background 0.15s;
+  transition: background 0.12s;
 }
 input[type="range"]:hover {
   background: var(--color-text-muted);
@@ -90,81 +93,68 @@ input[type="range"]:hover {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background: var(--color-primary);
-  border-radius: 50%;
   cursor: pointer;
   border: 2px solid var(--color-surface);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-  transition: transform 0.1s, box-shadow 0.1s;
-}
-input[type="range"]::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-}
-input[type="range"]::-webkit-slider-thumb:active {
-  transform: scale(1.05);
+  box-shadow: 0 0 0 1px var(--color-border);
 }
 input[type="range"]::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   background: var(--color-primary);
-  border-radius: 50%;
   cursor: pointer;
   border: 2px solid var(--color-surface);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  border-radius: 0;
 }
 
-/* Checkbox styling */
+/* Checkbox */
 input[type="checkbox"] {
   accent-color: var(--color-primary);
 }
 
-/* Select styling */
 select {
   cursor: pointer;
 }
 
-/* Button active state — tactile press */
+/* Tactile press */
 button:active:not(:disabled) {
   transform: scale(0.97);
 }
 
-/* Smooth transitions on interactive elements */
 button, a, input, select, textarea {
-  transition: all 0.15s ease;
+  transition: all 0.12s ease;
 }
 
-.chat-markdown > :first-child {
-  margin-top: 0;
-}
+/* ─── Chat Markdown ─────────────────────────────────────── */
 
-.chat-markdown > :last-child {
-  margin-bottom: 0;
-}
+.chat-markdown > :first-child { margin-top: 0; }
+.chat-markdown > :last-child { margin-bottom: 0; }
 
 .chat-markdown h1,
 .chat-markdown h2,
 .chat-markdown h3,
 .chat-markdown h4 {
-  margin: 1.1rem 0 0.55rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--color-text);
+  margin: 1.4rem 0 0.5rem;
+  line-height: 1.25;
 }
 
 .chat-markdown h1 {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 0.35rem;
 }
-
-.chat-markdown h2 {
-  font-size: 1.1rem;
-}
-
-.chat-markdown h3,
+.chat-markdown h2 { font-size: 1.15rem; }
+.chat-markdown h3 { font-size: 1rem; }
 .chat-markdown h4 {
-  font-size: 1rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
 }
 
 .chat-markdown p,
@@ -178,51 +168,76 @@ button, a, input, select, textarea {
 
 .chat-markdown ul,
 .chat-markdown ol {
-  padding-left: 1.35rem;
+  padding-left: 1.5rem;
 }
 
-.chat-markdown li + li {
-  margin-top: 0.25rem;
-}
+.chat-markdown li + li { margin-top: 0.3rem; }
+.chat-markdown li > p { margin: 0; }
 
+/* Brutalist blockquote — thick accent border, no background */
 .chat-markdown blockquote {
-  border-left: 3px solid color-mix(in srgb, var(--color-primary) 65%, transparent);
-  padding: 0.1rem 0 0.1rem 0.9rem;
+  border-left: 4px solid var(--color-primary);
+  padding: 0.3rem 0 0.3rem 1rem;
   color: var(--color-text-secondary);
-  background: color-mix(in srgb, var(--color-primary) 7%, transparent);
-  border-radius: 0 12px 12px 0;
+  font-style: italic;
+  margin: 0.8rem 0;
 }
 
 .chat-markdown hr {
   border: 0;
-  border-top: 1px solid var(--color-border);
+  border-top: 2px solid var(--color-border);
+  margin: 1.25rem 0;
+}
+
+/* Brutalist table — full borders, no radius */
+.chat-markdown .md-table-wrapper {
+  overflow-x: auto;
   margin: 1rem 0;
+  border: 2px solid var(--color-border);
 }
 
 .chat-markdown table {
   width: 100%;
   border-collapse: collapse;
-  background: color-mix(in srgb, var(--color-surface) 85%, transparent);
-}
-
-.chat-markdown th,
-.chat-markdown td {
-  border-bottom: 1px solid var(--color-border);
-  padding: 0.7rem 0.85rem;
-  text-align: left;
-  vertical-align: top;
+  font-size: 0.875rem;
 }
 
 .chat-markdown th {
-  font-size: 0.72rem;
+  padding: 0.45rem 0.75rem;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--color-text-muted);
-  background: color-mix(in srgb, var(--color-surface-dim) 75%, transparent);
+  background: var(--color-surface-dim);
+  border-bottom: 2px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+}
+.chat-markdown th:last-child { border-right: none; }
+
+.chat-markdown td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  vertical-align: top;
+  line-height: 1.5;
+}
+.chat-markdown td:last-child { border-right: none; }
+.chat-markdown tr:last-child td { border-bottom: none; }
+.chat-markdown tr:nth-child(even) td { background: var(--color-surface-dim); }
+
+/* Inline code — accent tinted, monospace */
+.chat-markdown :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.84em;
+  background: var(--color-surface-dim);
+  border: 1px solid var(--color-border);
+  padding: 0.1em 0.4em;
+  color: var(--color-primary);
 }
 
-.chat-markdown-user blockquote,
-.chat-markdown-user table {
-  background: color-mix(in srgb, white 45%, transparent);
-}
+/* Strong and em */
+.chat-markdown strong { font-weight: 700; color: var(--color-text); }
+.chat-markdown em { font-style: italic; }

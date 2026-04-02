@@ -51,13 +51,13 @@ export function LogViewer({ onClose }: LogViewerProps) {
   }
 
   return (
-    <div className="flex h-full w-96 flex-col border-l border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border p-4">
-        <h3 className="text-sm font-bold text-text">Server Logs</h3>
+    <div className="flex h-full w-96 flex-col border-l-2 border-border bg-surface">
+      <div className="flex items-center justify-between border-b-2 border-border p-4">
+        <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">Server Logs</h3>
         <div className="flex items-center gap-1.5">
           <button
             onClick={clearLogs}
-            className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-hover"
+            className="p-1.5 text-text-muted transition-colors hover:bg-surface-dim"
             title="Clear logs"
             aria-label="Clear logs"
           >
@@ -69,7 +69,7 @@ export function LogViewer({ onClose }: LogViewerProps) {
                 setAutoScroll(true)
                 bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
               }}
-              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-hover"
+              className="p-1.5 text-text-muted transition-colors hover:bg-surface-dim"
               title="Scroll to bottom"
               aria-label="Scroll to bottom"
             >
@@ -78,7 +78,7 @@ export function LogViewer({ onClose }: LogViewerProps) {
           )}
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-surface-hover"
+            className="p-1.5 text-text-muted transition-colors hover:bg-surface-dim"
             aria-label="Close logs"
           >
             <X className="w-4 h-4" />
@@ -91,7 +91,7 @@ export function LogViewer({ onClose }: LogViewerProps) {
         className="flex-1 overflow-y-auto font-mono text-xs leading-relaxed"
       >
         {logs.length === 0 ? (
-          <div className="p-6 text-center text-sm text-text-muted">
+          <div className="p-6 text-center text-sm text-text-muted font-mono">
             No logs yet. Start the server to see output.
           </div>
         ) : (
@@ -99,7 +99,7 @@ export function LogViewer({ onClose }: LogViewerProps) {
             {logs.map((entry) => (
               <div
                 key={`${entry.timestamp}-${entry.line}`}
-                className="flex gap-2.5 rounded-lg px-2 py-0.5 hover:bg-surface-dim"
+                className="flex gap-2.5 px-2 py-0.5 hover:bg-surface-dim"
               >
                 <span className="shrink-0 select-none text-text-muted">
                   {formatTime(entry.timestamp)}
