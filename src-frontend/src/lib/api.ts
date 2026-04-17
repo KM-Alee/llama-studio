@@ -1,17 +1,49 @@
 const API_BASE = '/api/v1'
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
+interface ErrorResponse {
+  error?: string
+}
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(error.error || 'Request failed')
+function buildRequestInit(options?: RequestInit): RequestInit {
+  const headers = new Headers(options?.headers)
+
+  if (options?.body != null && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
   }
 
-  return res.json()
+  return {
+    ...options,
+    headers,
+  }
+}
+
+async function getErrorMessage(res: Response): Promise<string> {
+  const error = await res.json().catch(() => null) as ErrorResponse | null
+  return error?.error || res.statusText || 'Request failed'
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, buildRequestInit(options))
+
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res))
+  }
+
+  if (res.status === 204) {
+    return undefined as T
+  }
+
+  return res.json() as Promise<T>
+}
+
+async function requestText(path: string, options?: RequestInit): Promise<string> {
+  const res = await fetch(`${API_BASE}${path}`, buildRequestInit(options))
+
+  if (!res.ok) {
+    throw new Error(await getErrorMessage(res))
+  }
+
+  return res.text()
 }
 
 export interface Model {
@@ -244,11 +276,8 @@ export const searchConversations = (q: string) =>
   request<{ conversations: Conversation[] }>(`/conversations/search?q=${encodeURIComponent(q)}`)
 export const exportConversationJson = (id: string) =>
   request<ConversationExport>(`/conversations/${encodeURIComponent(id)}/export/json`)
-export const exportConversationMarkdown = async (id: string): Promise<string> => {
-  const res = await fetch(`${API_BASE}/conversations/${encodeURIComponent(id)}/export/markdown`)
-  if (!res.ok) throw new Error('Export failed')
-  return res.text()
-}
+export const exportConversationMarkdown = (id: string) =>
+  requestText(`/conversations/${encodeURIComponent(id)}/export/markdown`)
 export const forkConversation = (id: string, afterMessageId?: string) =>
   request<Conversation>(`/conversations/${encodeURIComponent(id)}/fork`, {
     method: 'POST',
@@ -278,16 +307,17 @@ export async function* streamChat(
   params?: Record<string, unknown>,
   signal?: AbortSignal,
 ): AsyncGenerator<string> {
-  const res = await fetch(`${API_BASE}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, stream: true, ...params }),
-    signal,
-  })
+  const res = await fetch(
+    `${API_BASE}/chat/completions`,
+    buildRequestInit({
+      method: 'POST',
+      body: JSON.stringify({ messages, stream: true, ...params }),
+      signal,
+    }),
+  )
 
   if (!res.ok) {
-    const errBody = await res.json().catch(() => null) as { error?: string } | null
-    throw new Error(errBody?.error ?? 'Chat request failed')
+    throw new Error(await getErrorMessage(res))
   }
   if (!res.body) throw new Error('No response body')
 

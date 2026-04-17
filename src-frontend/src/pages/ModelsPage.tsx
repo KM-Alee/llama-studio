@@ -21,19 +21,6 @@ import toast from 'react-hot-toast'
 type ViewMode = 'grid' | 'list'
 type Tab = 'local' | 'browse' | 'downloads'
 
-interface ModelDetail {
-  id: string
-  name: string
-  path: string
-  size_bytes: number
-  quantization: string | null
-  architecture: string | null
-  parameters: string | null
-  context_length: number | null
-  added_at: string
-  last_used: string | null
-}
-
 function estimateVram(sizeBytes: number, quant?: string | null): string {
   const base = sizeBytes * 1.2
   if (quant?.startsWith('Q4')) return `~${formatBytes(base)}`
@@ -58,7 +45,7 @@ export function ModelsPage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>('list')
   const [activeTab, setActiveTab] = useState<Tab>('local')
-  const [selectedModel, setSelectedModel] = useState<ModelDetail | null>(null)
+  const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [hfQuery, setHfQuery] = useState('')
   const [expandedHfModel, setExpandedHfModel] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)

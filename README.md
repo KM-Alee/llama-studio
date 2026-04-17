@@ -13,7 +13,8 @@
     <a href="#features">Features</a> •
     <a href="#quick-start">Quick Start</a> •
     <a href="#tech-stack">Tech Stack</a> •
-    <a href="#configuration">Configuration</a>
+    <a href="#configuration">Configuration</a> •
+    <a href="#contributing">Contributing</a>
   </p>
 </div>
 
@@ -97,6 +98,7 @@ We welcome contributions! Please ensure:
 3. You run `make check && make test` before opening a pull request.
 
 Check [ARCHITECTURE.md](docs/ARCHITECTURE.md) for a deep dive into the system design.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow expectations and [SECURITY.md](SECURITY.md) for vulnerability reporting guidance.
 
 ## 📜 License
 
