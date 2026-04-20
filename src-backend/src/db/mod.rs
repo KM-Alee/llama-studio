@@ -151,6 +151,7 @@ impl Database {
                 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
                 CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
 
+                DELETE FROM schema_version;
                 INSERT INTO schema_version (version) VALUES (2);
                 "
             )?;
@@ -165,6 +166,7 @@ impl Database {
                 )?;
             }
 
+            conn.execute("DELETE FROM schema_version", [])?;
             conn.execute(
                 "INSERT INTO schema_version (version) VALUES (?1)",
                 [SCHEMA_VERSION],
