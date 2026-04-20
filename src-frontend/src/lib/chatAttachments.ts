@@ -3,14 +3,42 @@ import type { MessageAttachment } from '@/lib/api'
 const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024
 
 const TEXT_FILE_EXTENSIONS = new Set([
-  'c', 'cc', 'cpp', 'cs', 'css', 'csv', 'go', 'h', 'hpp', 'html', 'java', 'js', 'json',
-  'jsx', 'kt', 'log', 'md', 'php', 'py', 'rb', 'rs', 'sh', 'sql', 'svg', 'toml', 'ts',
-  'tsx', 'txt', 'xml', 'yaml', 'yml',
+  'c',
+  'cc',
+  'cpp',
+  'cs',
+  'css',
+  'csv',
+  'go',
+  'h',
+  'hpp',
+  'html',
+  'java',
+  'js',
+  'json',
+  'jsx',
+  'kt',
+  'log',
+  'md',
+  'php',
+  'py',
+  'rb',
+  'rs',
+  'sh',
+  'sql',
+  'svg',
+  'toml',
+  'ts',
+  'tsx',
+  'txt',
+  'xml',
+  'yaml',
+  'yml',
 ])
 
 function getExtension(filename: string): string {
   const parts = filename.toLowerCase().split('.')
-  return parts.length > 1 ? parts.at(-1) ?? '' : ''
+  return parts.length > 1 ? (parts.at(-1) ?? '') : ''
 }
 
 export function isSupportedAttachment(file: File): boolean {

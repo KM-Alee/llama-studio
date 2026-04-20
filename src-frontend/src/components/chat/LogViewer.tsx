@@ -51,13 +51,16 @@ export function LogViewer({ onClose }: LogViewerProps) {
   }
 
   return (
-    <div className="flex h-full w-96 flex-col border-l-2 border-border bg-surface">
-      <div className="flex items-center justify-between border-b-2 border-border p-4">
-        <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">Server Logs</h3>
+    <div className="flex h-full w-[min(28rem,100vw)] flex-col border-l border-border bg-surface xl:w-[24rem]">
+      <div className="flex items-center justify-between border-b border-border p-4">
+        <h3 className="font-mono text-[10px] uppercase tracking-[0.18em] text-text-muted">
+          Server Logs
+        </h3>
         <div className="flex items-center gap-1.5">
           <button
+            type="button"
             onClick={clearLogs}
-            className="p-1.5 text-text-muted transition-colors hover:bg-surface-dim"
+            className="ui-icon-button"
             title="Clear logs"
             aria-label="Clear logs"
           >
@@ -65,11 +68,12 @@ export function LogViewer({ onClose }: LogViewerProps) {
           </button>
           {!autoScroll && (
             <button
+              type="button"
               onClick={() => {
                 setAutoScroll(true)
                 bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
               }}
-              className="p-1.5 text-text-muted transition-colors hover:bg-surface-dim"
+              className="ui-icon-button"
               title="Scroll to bottom"
               aria-label="Scroll to bottom"
             >
@@ -77,8 +81,9 @@ export function LogViewer({ onClose }: LogViewerProps) {
             </button>
           )}
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 text-text-muted transition-colors hover:bg-surface-dim"
+            className="ui-icon-button"
             aria-label="Close logs"
           >
             <X className="w-4 h-4" />
@@ -104,9 +109,7 @@ export function LogViewer({ onClose }: LogViewerProps) {
                 <span className="shrink-0 select-none text-text-muted">
                   {formatTime(entry.timestamp)}
                 </span>
-                <span className="break-all whitespace-pre-wrap text-text">
-                  {entry.line}
-                </span>
+                <span className="break-all whitespace-pre-wrap text-text">{entry.line}</span>
               </div>
             ))}
             <div ref={bottomRef} />

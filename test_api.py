@@ -3,7 +3,7 @@
 import urllib.request
 import json
 
-BASE = "http://127.0.0.1:3000/api/v1"
+BASE = "http://127.0.0.1:6868/api/v1"
 
 def get(path):
     r = urllib.request.urlopen(f"{BASE}{path}")

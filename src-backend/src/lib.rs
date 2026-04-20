@@ -3,6 +3,7 @@
 // Exposes the application's modules so integration tests in `tests/` can
 // construct the router and exercise endpoints without starting a TCP listener.
 
+pub mod app;
 pub mod db;
 pub mod error;
 pub mod routes;

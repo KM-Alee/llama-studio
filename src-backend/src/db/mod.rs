@@ -1,6 +1,7 @@
 use anyhow::Result;
 use rusqlite::Connection;
 use serde_json::Value;
+use std::path::Path;
 use std::sync::Mutex;
 
 use crate::services::model_registry::{Model, ModelAnalytics, ModelConversationSummary};
@@ -22,17 +23,39 @@ pub struct Database {
 
 impl Database {
     pub async fn new() -> Result<Self> {
-        let db_path = dirs::data_local_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("ai-studio")
-            .join("ai-studio.db");
+        let data_root = dirs::data_local_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+        let db_path = data_root.join("llamastudio").join("llamastudio.db");
+        let legacy_db_path = data_root.join("ai-studio").join("ai-studio.db");
+
+        if !db_path.exists() && legacy_db_path.exists() {
+            if let Some(parent) = db_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::copy(&legacy_db_path, &db_path)?;
+        }
 
         // Ensure directory exists
         if let Some(parent) = db_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
-        let conn = Connection::open(&db_path)?;
+        Self::open_connection(Connection::open(&db_path)?)
+    }
+
+    pub async fn new_in_memory() -> Result<Self> {
+        Self::open_connection(Connection::open_in_memory()?)
+    }
+
+    pub async fn open_at<P: AsRef<Path>>(db_path: P) -> Result<Self> {
+        let db_path = db_path.as_ref();
+        if let Some(parent) = db_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        Self::open_connection(Connection::open(db_path)?)
+    }
+
+    fn open_connection(conn: Connection) -> Result<Self> {
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
 
         let db = Self {
@@ -40,6 +63,20 @@ impl Database {
         };
         db.run_migrations()?;
         Ok(db)
+    }
+
+    fn table_has_column(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+        let pragma = format!("PRAGMA table_info({table})");
+        let mut stmt = conn.prepare(&pragma)?;
+        let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
+
+        for existing_column in columns {
+            if existing_column? == column {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
     }
 
     fn run_migrations(&self) -> Result<()> {
@@ -50,7 +87,7 @@ impl Database {
             "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);",
         )?;
 
-        let current: u32 = conn
+        let mut current: u32 = conn
             .query_row(
                 "SELECT COALESCE(MAX(version), 0) FROM schema_version",
                 [],
@@ -114,18 +151,23 @@ impl Database {
                 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
                 CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
 
-                INSERT INTO schema_version (version) VALUES (1);
+                INSERT INTO schema_version (version) VALUES (2);
                 "
             )?;
-            tracing::info!("Database migrated to schema version 1");
+            current = SCHEMA_VERSION;
+            tracing::info!("Database migrated to schema version 2");
         }
 
-        if (1..2).contains(&current) {
-            conn.execute_batch(
-                "
-                ALTER TABLE messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]';
-                INSERT INTO schema_version (version) VALUES (2);
-                ",
+        if current < 2 {
+            if !Self::table_has_column(&conn, "messages", "attachments_json")? {
+                conn.execute_batch(
+                    "ALTER TABLE messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]';",
+                )?;
+            }
+
+            conn.execute(
+                "INSERT INTO schema_version (version) VALUES (?1)",
+                [SCHEMA_VERSION],
             )?;
             tracing::info!("Database migrated to schema version 2");
         }

@@ -1,6 +1,6 @@
-# AI Studio Frontend
+# LlamaStudio Frontend
 
-React 19 + TypeScript + Vite + Tailwind CSS frontend for AI Studio.
+React 19 + TypeScript + Vite + Tailwind CSS frontend for LlamaStudio.
 
 ## Development
 

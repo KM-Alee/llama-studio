@@ -1,54 +1,92 @@
-.PHONY: dev dev-backend dev-frontend build clean check test fmt lint
+.PHONY: install \
+	dev dev-backend dev-frontend dev-desktop \
+	check check-backend check-frontend check-desktop \
+	lint lint-backend lint-frontend lint-desktop \
+	test test-backend test-frontend \
+	fmt fmt-backend fmt-frontend fmt-desktop \
+	build build-backend build-frontend build-desktop \
+	release release-desktop release-all clean
 
-# Start both backend and frontend in development mode
+BACKEND_DIR := src-backend
+FRONTEND_DIR := src-frontend
+TAURI_DIR := $(FRONTEND_DIR)/src-tauri
+
+install:
+	cd $(FRONTEND_DIR) && pnpm install
+
 dev:
-	@echo "Starting AI Studio development servers..."
-	@trap 'kill 0' INT TERM; make dev-backend & make dev-frontend & wait
+	@echo "Starting AI Studio browser development servers..."
+	@trap 'kill 0' INT TERM; $(MAKE) dev-backend & $(MAKE) dev-frontend & wait
 
 dev-backend:
-	cd src-backend && RUST_LOG=debug cargo run
+	cd $(BACKEND_DIR) && RUST_LOG=debug cargo run
 
 dev-frontend:
-	cd src-frontend && pnpm dev
+	cd $(FRONTEND_DIR) && pnpm dev
 
-# Build for production
+dev-desktop:
+	cd $(FRONTEND_DIR) && pnpm tauri:dev
+
 build: build-frontend build-backend
 
 build-frontend:
-	cd src-frontend && pnpm build
+	cd $(FRONTEND_DIR) && pnpm build
 
 build-backend:
-	cd src-backend && cargo build --release
+	cd $(BACKEND_DIR) && cargo build --release
 
-# Type checking & linting
-check:
-	cd src-backend && cargo check
-	cd src-backend && cargo clippy -- -D warnings
-	cd src-frontend && pnpm tsc --noEmit
-	cd src-frontend && pnpm lint
+build-desktop:
+	cd $(FRONTEND_DIR) && pnpm tauri:build
 
-# Run all tests
+check: check-backend check-frontend check-desktop
+
+check-backend:
+	cd $(BACKEND_DIR) && cargo check
+
+check-frontend:
+	cd $(FRONTEND_DIR) && pnpm tsc --noEmit
+	cd $(FRONTEND_DIR) && pnpm lint
+
+check-desktop:
+	cd $(TAURI_DIR) && cargo check
+
+lint: lint-backend lint-frontend lint-desktop
+
+lint-backend:
+	cd $(BACKEND_DIR) && cargo clippy -- -D warnings
+
+lint-frontend:
+	cd $(FRONTEND_DIR) && pnpm lint
+
+lint-desktop:
+	cd $(TAURI_DIR) && cargo clippy -- -D warnings
+
 test: test-backend test-frontend
 
-# Run backend tests
 test-backend:
-	cd src-backend && cargo test
+	cd $(BACKEND_DIR) && cargo test
 
-# Run frontend unit tests
 test-frontend:
-	cd src-frontend && pnpm test
+	cd $(FRONTEND_DIR) && pnpm test
 
-# Format code
-fmt:
-	cd src-backend && cargo fmt
-	cd src-frontend && pnpm exec prettier --write "src/**/*.{ts,tsx}"
+fmt: fmt-backend fmt-frontend fmt-desktop
 
-# Lint only (no type check)
-lint:
-	cd src-backend && cargo clippy -- -D warnings
-	cd src-frontend && pnpm lint
+fmt-backend:
+	cd $(BACKEND_DIR) && cargo fmt
 
-# Clean build artifacts
+fmt-frontend:
+	cd $(FRONTEND_DIR) && pnpm exec prettier --write "src/**/*.{ts,tsx}" "vite.config.ts" "src-tauri/**/*.json" "../README.md" "../CONTRIBUTING.md" "../docs/**/*.md"
+
+fmt-desktop:
+	cd $(TAURI_DIR) && cargo fmt
+
+release: check lint test build
+
+release-desktop: check lint test build-desktop
+
+release-all: release release-desktop
+
 clean:
-	cd src-backend && cargo clean
-	cd src-frontend && rm -rf dist node_modules/.vite
+	cd $(BACKEND_DIR) && cargo clean
+	cd $(TAURI_DIR) && cargo clean
+	cd $(FRONTEND_DIR) && rm -rf dist node_modules/.vite

@@ -37,17 +37,15 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
                 const preview = attachment.content.slice(0, 800)
                 const isTruncated = attachment.content.length > preview.length
                 return (
-                  <details
-                    key={attachment.id}
-                    className="border border-border bg-surface-dim"
-                  >
+                  <details key={attachment.id} className="border border-border bg-surface-dim">
                     <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm text-text-secondary hover:bg-surface-hover">
                       <span className="flex min-w-0 items-center gap-2">
                         <FileCode2 className="h-3.5 w-3.5 shrink-0 text-primary" />
                         <span className="truncate font-medium text-text">{attachment.name}</span>
                       </span>
                       <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-muted">
-                        {getAttachmentLanguage(attachment.name)} · {formatBytes(attachment.size_bytes)}
+                        {getAttachmentLanguage(attachment.name)} ·{' '}
+                        {formatBytes(attachment.size_bytes)}
                       </span>
                     </summary>
                     <pre className="overflow-x-auto border-t border-border bg-[#0e0e0c] px-4 py-3 text-xs leading-6 text-white/85">
@@ -80,7 +78,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
       transition={{ duration: 0.18, ease: 'easeOut' }}
       className="group flex gap-4"
     >
-      <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full overflow-hidden border-2 border-border bg-surface-dim">
+      <div className="mt-0.5 h-6 w-6 shrink-0 overflow-hidden border-2 border-border bg-surface-dim">
         <img src="/ai-face.jpeg" alt="AI avatar" className="h-full w-full object-cover" />
       </div>
 
@@ -98,7 +96,8 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
                       <span className="truncate font-medium text-text">{attachment.name}</span>
                     </span>
                     <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-text-muted">
-                      {getAttachmentLanguage(attachment.name)} · {formatBytes(attachment.size_bytes)}
+                      {getAttachmentLanguage(attachment.name)} ·{' '}
+                      {formatBytes(attachment.size_bytes)}
                     </span>
                   </summary>
                   <pre className="overflow-x-auto border-t border-border bg-[#0e0e0c] px-4 py-3 text-xs leading-6 text-white/85">
@@ -119,18 +118,27 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
         ) : null}
 
         {isStreaming && (
-          <span aria-hidden="true" className="ml-0.5 inline-block h-[1.1em] w-[2px] bg-primary animate-pulse" />
+          <span
+            aria-hidden="true"
+            className="ml-0.5 inline-block h-[1.1em] w-[2px] bg-primary animate-pulse"
+          />
         )}
 
         {!isStreaming && (message.tokensUsed || message.generationTimeMs) && (
           <div className="mt-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-text-muted/60 select-none">
             {message.tokensUsed && <span>{message.tokensUsed} tok</span>}
-            {message.tokensUsed && message.generationTimeMs && <span className="opacity-40">·</span>}
-            {message.generationTimeMs && <span>{(message.generationTimeMs / 1000).toFixed(1)}s</span>}
+            {message.tokensUsed && message.generationTimeMs && (
+              <span className="opacity-40">·</span>
+            )}
+            {message.generationTimeMs && (
+              <span>{(message.generationTimeMs / 1000).toFixed(1)}s</span>
+            )}
             {message.tokensUsed && message.generationTimeMs && message.generationTimeMs > 0 && (
               <>
                 <span className="opacity-40">·</span>
-                <span>{((message.tokensUsed / message.generationTimeMs) * 1000).toFixed(0)} tok/s</span>
+                <span>
+                  {((message.tokensUsed / message.generationTimeMs) * 1000).toFixed(0)} tok/s
+                </span>
               </>
             )}
           </div>
@@ -140,12 +148,17 @@ export const MessageBubble = memo(function MessageBubble({ message, isStreaming 
       {!isStreaming && message.content && (
         <div className="flex shrink-0 items-start pt-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <button
+            type="button"
             onClick={handleCopy}
-            className="p-1.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+            className="ui-icon-button h-8 w-8"
             title="Copy"
             aria-label="Copy response"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? (
+              <Check className="w-3.5 h-3.5 text-success" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
           </button>
         </div>
       )}

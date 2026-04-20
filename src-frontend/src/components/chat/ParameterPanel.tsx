@@ -18,13 +18,16 @@ export interface InferenceParams {
   mirostat_eta: number
 }
 
+export const MAX_TOKENS_AUTO = 0
+export const MAX_TOKENS_LIMIT = 8192
+
 const DEFAULTS: InferenceParams = {
   temperature: 0.7,
   top_p: 0.9,
   top_k: 40,
   min_p: 0.05,
   repeat_penalty: 1.05,
-  max_tokens: -1,
+  max_tokens: MAX_TOKENS_AUTO,
   frequency_penalty: 0,
   presence_penalty: 0,
   seed: -1,
@@ -63,7 +66,7 @@ function SliderRow({ label, value, min, max, step, onChange, description }: Slid
           min={min}
           max={max}
           step={step}
-          className="w-20 px-2 py-1 text-xs text-right bg-surface-dim border border-border rounded-lg text-text focus:outline-none focus:border-primary"
+          className="w-20 border border-border bg-surface px-2.5 py-1.5 text-right text-xs text-text outline-none focus:border-primary"
         />
       </div>
       <input
@@ -75,9 +78,7 @@ function SliderRow({ label, value, min, max, step, onChange, description }: Slid
         step={step}
         className="w-full"
       />
-      {description && (
-        <p className="text-xs text-text-muted leading-relaxed">{description}</p>
-      )}
+      {description && <p className="text-xs text-text-muted leading-relaxed">{description}</p>}
     </div>
   )
 }
@@ -110,20 +111,22 @@ export function ParameterPanel({ params, onChange, onClose }: ParameterPanelProp
   }
 
   return (
-    <div className="w-80 border-l border-border bg-surface h-full overflow-y-auto">
-      <div className="flex items-center justify-between p-4 border-b border-border">
+    <div className="h-full w-[min(22rem,100vw)] overflow-y-auto border-l border-border bg-surface xl:w-[20rem]">
+      <div className="flex items-center justify-between border-b border-border p-4">
         <h3 className="text-sm font-bold text-text">Parameters</h3>
         <div className="flex items-center gap-1">
           <button
+            type="button"
             onClick={() => onChange({ ...DEFAULTS })}
-            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+            className="ui-icon-button h-9 w-9"
             title="Reset to defaults"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted transition-colors"
+            className="ui-icon-button h-9 w-9"
           >
             <X className="w-4 h-4" />
           </button>
@@ -252,11 +255,11 @@ export function ParameterPanel({ params, onChange, onClose }: ParameterPanelProp
           <SliderRow
             label="Max Tokens"
             value={params.max_tokens}
-            min={-1}
-            max={8192}
+            min={0}
+            max={MAX_TOKENS_LIMIT}
             step={64}
             onChange={(v) => update('max_tokens', v)}
-            description="-1 for unlimited"
+            description="0 = auto, or set a hard cap up to 8192"
           />
           <SliderRow
             label="Seed"

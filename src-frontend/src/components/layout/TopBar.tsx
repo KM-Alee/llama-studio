@@ -59,7 +59,10 @@ export function TopBar() {
   }, [data, setStatus])
 
   const currentConversation = useMemo(
-    () => conversationsData?.conversations.find((conversation) => conversation.id === activeConversationId) ?? null,
+    () =>
+      conversationsData?.conversations.find(
+        (conversation) => conversation.id === activeConversationId,
+      ) ?? null,
     [activeConversationId, conversationsData?.conversations],
   )
 
@@ -100,8 +103,8 @@ export function TopBar() {
   const exportBaseName = slugifyFilename(currentConversation?.title ?? 'conversation')
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b-2 border-border bg-surface px-4">
-      <div className="flex items-center gap-3">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b-2 border-border bg-surface px-3 sm:px-4">
+      <div className="flex min-w-0 items-center gap-3">
         {!sidebarOpen && (
           <>
             <div className="flex items-center gap-2">
@@ -112,12 +115,13 @@ export function TopBar() {
                 className="h-8 w-8 shrink-0 border-2 border-border bg-surface-dim object-cover"
               />
               <span className="hidden font-mono text-xs font-black uppercase tracking-[0.2em] text-text sm:inline">
-                LLAMA STUDIO
+                LLAMASTUDIO
               </span>
             </div>
             <button
+              type="button"
               onClick={toggleSidebar}
-              className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+              className="ui-icon-button"
               title="Open sidebar"
               aria-label="Open sidebar"
             >
@@ -126,9 +130,11 @@ export function TopBar() {
           </>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 sm:flex">
           <div className={cn('w-2 h-2', statusColor)} />
-          <span className="font-mono text-xs uppercase tracking-widest text-text-muted">{statusLabel}</span>
+          <span className="font-mono text-xs uppercase tracking-widest text-text-muted">
+            {statusLabel}
+          </span>
         </div>
 
         <div className="h-4 w-px bg-border" />
@@ -136,27 +142,30 @@ export function TopBar() {
         <ModelSelector />
       </div>
 
-      <div className="flex items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-1">
         {activeConversationId && (
           <>
             <button
+              type="button"
               onClick={() => setRenameOpen(true)}
-              className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+              className="ui-icon-button"
               title="Rename conversation"
             >
               <Pencil className="w-4 h-4" />
             </button>
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setShowExport(!showExport)}
-                className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+                className="ui-icon-button"
                 title="Export"
               >
                 <Download className="w-4 h-4" />
               </button>
               {showExport && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden border-2 border-border bg-surface py-1 shadow-[2px_2px_0px_var(--color-border)]">
+                <div className="ui-panel absolute right-0 top-full z-50 mt-2 w-44 overflow-hidden py-1">
                   <button
+                    type="button"
                     onClick={async () => {
                       try {
                         const markdown = await exportConversationMarkdown(activeConversationId)
@@ -178,10 +187,13 @@ export function TopBar() {
                     Markdown
                   </button>
                   <button
+                    type="button"
                     onClick={async () => {
                       try {
                         const conversation = await exportConversationJson(activeConversationId)
-                        const blob = new Blob([JSON.stringify(conversation, null, 2)], { type: 'application/json' })
+                        const blob = new Blob([JSON.stringify(conversation, null, 2)], {
+                          type: 'application/json',
+                        })
                         const url = URL.createObjectURL(blob)
                         const link = document.createElement('a')
                         link.href = url
@@ -202,6 +214,7 @@ export function TopBar() {
               )}
             </div>
             <button
+              type="button"
               onClick={async () => {
                 try {
                   const forked = await forkConversation(activeConversationId)
@@ -211,7 +224,7 @@ export function TopBar() {
                   toast.error('Fork failed')
                 }
               }}
-              className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+              className="ui-icon-button"
               title="Fork conversation"
             >
               <GitFork className="w-4 h-4" />
@@ -221,17 +234,19 @@ export function TopBar() {
         )}
 
         <button
+          type="button"
           onClick={() => setCommandPaletteOpen(true)}
-          className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+          className="ui-icon-button"
           title="Search (Ctrl+K)"
         >
           <Search className="w-4 h-4" />
         </button>
 
         <button
+          type="button"
           onClick={toggleProfile}
           className={cn(
-            'flex items-center gap-1.5 border px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-widest transition-colors',
+            'hidden items-center gap-1.5 border-2 px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-widest transition-colors sm:flex',
             profile === 'advanced'
               ? 'border-primary bg-primary/8 text-primary'
               : 'border-border text-text-muted hover:border-text-muted hover:bg-surface-hover hover:text-text',

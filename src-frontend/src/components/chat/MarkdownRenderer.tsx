@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
@@ -12,9 +12,25 @@ interface MarkdownRendererProps {
   tone?: 'assistant' | 'user'
 }
 
-function CodeBlock({ className, children }: { className?: string; children: React.ReactNode }) {
+function extractTextContent(children: ReactNode): string {
+  if (typeof children === 'string' || typeof children === 'number') {
+    return String(children)
+  }
+
+  if (Array.isArray(children)) {
+    return children.map((child) => extractTextContent(child)).join('')
+  }
+
+  if (children && typeof children === 'object' && 'props' in children) {
+    return extractTextContent((children as { props?: { children?: ReactNode } }).props?.children)
+  }
+
+  return ''
+}
+
+function CodeBlock({ className, children }: { className?: string; children: ReactNode }) {
   const [copied, setCopied] = useState(false)
-  const code = String(children).replace(/\n$/, '')
+  const code = extractTextContent(children).replace(/\n$/, '')
   const language = className?.replace('language-', '') || 'text'
 
   const handleCopy = async () => {
@@ -39,7 +55,7 @@ function CodeBlock({ className, children }: { className?: string; children: Reac
         </button>
       </div>
       <pre className="overflow-x-auto px-5 py-4 text-[13px] leading-[1.7]">
-        <code className={className}>{code}</code>
+        <code className={className}>{children}</code>
       </pre>
     </div>
   )
@@ -47,7 +63,12 @@ function CodeBlock({ className, children }: { className?: string; children: Reac
 
 export function MarkdownRenderer({ content, tone = 'assistant' }: MarkdownRendererProps) {
   return (
-    <div className={cn('chat-markdown text-[0.9375rem] leading-[1.75]', tone === 'user' && 'chat-markdown-user')}>
+    <div
+      className={cn(
+        'chat-markdown text-[0.9375rem] leading-[1.75]',
+        tone === 'user' && 'chat-markdown-user',
+      )}
+    >
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeHighlight]}
@@ -71,8 +92,21 @@ export function MarkdownRenderer({ content, tone = 'assistant' }: MarkdownRender
               </div>
             )
           },
+          ul({ children }) {
+            return <ul className="md-list md-list-unordered">{children}</ul>
+          },
+          ol({ children }) {
+            return <ol className="md-list md-list-ordered">{children}</ol>
+          },
+          li({ children }) {
+            return <li className="md-list-item">{children}</li>
+          },
+          p({ children }) {
+            return <p className="md-paragraph">{children}</p>
+          },
           code({ className, children }) {
-            const isBlock = Boolean(className)
+            const textContent = extractTextContent(children)
+            const isBlock = Boolean(className) || textContent.includes('\n')
             if (!isBlock) {
               return <code>{children}</code>
             }

@@ -57,92 +57,124 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
     return () => clearTimeout(timeout)
   }, [query])
 
-  const staticCommands: Command[] = useMemo(() => [
-    {
-      id: 'new-chat',
-      label: 'New Chat',
-      category: 'Navigation',
-      icon: <MessageSquare className="w-4 h-4" />,
-      action: () => { navigate('/chat'); onClose() },
-    },
-    {
-      id: 'models',
-      label: 'Models',
-      category: 'Navigation',
-      icon: <Box className="w-4 h-4" />,
-      action: () => { navigate('/models'); onClose() },
-    },
-    {
-      id: 'settings',
-      label: 'Settings',
-      category: 'Navigation',
-      icon: <Settings className="w-4 h-4" />,
-      action: () => { navigate('/settings'); onClose() },
-    },
-    {
-      id: 'theme-light',
-      label: 'Theme: Light',
-      category: 'Theme',
-      icon: <Sun className="w-4 h-4" />,
-      action: () => { setTheme('light'); onClose() },
-    },
-    {
-      id: 'theme-dark',
-      label: 'Theme: Dark',
-      category: 'Theme',
-      icon: <Moon className="w-4 h-4" />,
-      action: () => { setTheme('dark'); onClose() },
-    },
-    {
-      id: 'theme-system',
-      label: 'Theme: System',
-      category: 'Theme',
-      icon: <Monitor className="w-4 h-4" />,
-      action: () => { setTheme('system'); onClose() },
-    },
-    {
-      id: 'toggle-profile',
-      label: `Switch to ${profile === 'normal' ? 'Advanced' : 'Normal'} Mode`,
-      category: 'Profile',
-      icon: <Zap className="w-4 h-4" />,
-      action: () => { toggleProfile(); onClose() },
-    },
-  ], [navigate, onClose, setTheme, toggleProfile, profile])
-
-  const conversationCommands: Command[] = useMemo(() =>
-    query.length >= 2
-      ? searchResults.map((c) => ({
-          id: `convo-${c.id}`,
-          label: c.title,
-          category: 'Conversations',
-          icon: <MessageSquare className="w-4 h-4" />,
-          action: () => { navigate(`/chat/${c.id}`); onClose() },
-        }))
-      : [],
-    [query, searchResults, navigate, onClose]
+  const staticCommands: Command[] = useMemo(
+    () => [
+      {
+        id: 'new-chat',
+        label: 'New Chat',
+        category: 'Navigation',
+        icon: <MessageSquare className="w-4 h-4" />,
+        action: () => {
+          navigate('/chat')
+          onClose()
+        },
+      },
+      {
+        id: 'models',
+        label: 'Models',
+        category: 'Navigation',
+        icon: <Box className="w-4 h-4" />,
+        action: () => {
+          navigate('/models')
+          onClose()
+        },
+      },
+      {
+        id: 'settings',
+        label: 'Settings',
+        category: 'Navigation',
+        icon: <Settings className="w-4 h-4" />,
+        action: () => {
+          navigate('/settings')
+          onClose()
+        },
+      },
+      {
+        id: 'theme-light',
+        label: 'Theme: Light',
+        category: 'Theme',
+        icon: <Sun className="w-4 h-4" />,
+        action: () => {
+          setTheme('light')
+          onClose()
+        },
+      },
+      {
+        id: 'theme-dark',
+        label: 'Theme: Dark',
+        category: 'Theme',
+        icon: <Moon className="w-4 h-4" />,
+        action: () => {
+          setTheme('dark')
+          onClose()
+        },
+      },
+      {
+        id: 'theme-system',
+        label: 'Theme: System',
+        category: 'Theme',
+        icon: <Monitor className="w-4 h-4" />,
+        action: () => {
+          setTheme('system')
+          onClose()
+        },
+      },
+      {
+        id: 'toggle-profile',
+        label: `Switch to ${profile === 'normal' ? 'Advanced' : 'Normal'} Mode`,
+        category: 'Profile',
+        icon: <Zap className="w-4 h-4" />,
+        action: () => {
+          toggleProfile()
+          onClose()
+        },
+      },
+    ],
+    [navigate, onClose, setTheme, toggleProfile, profile],
   )
 
-  const allCommands = useMemo(() => [
-    ...staticCommands.filter((c) =>
-      c.label.toLowerCase().includes(query.toLowerCase())
-    ),
-    ...conversationCommands,
-  ], [staticCommands, query, conversationCommands])
+  const conversationCommands: Command[] = useMemo(
+    () =>
+      query.length >= 2
+        ? searchResults.map((c) => ({
+            id: `convo-${c.id}`,
+            label: c.title,
+            category: 'Conversations',
+            icon: <MessageSquare className="w-4 h-4" />,
+            action: () => {
+              navigate(`/chat/${c.id}`)
+              onClose()
+            },
+          }))
+        : [],
+    [query, searchResults, navigate, onClose],
+  )
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSelectedIndex((i) => Math.min(i + 1, allCommands.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelectedIndex((i) => Math.max(i - 1, 0))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      allCommands[selectedIndex]?.action()
-    } else if (e.key === 'Escape') {
-      onClose()
-    }
-  }, [allCommands, selectedIndex, onClose])
+  const allCommands = useMemo(
+    () => [
+      ...staticCommands.filter((c) => c.label.toLowerCase().includes(query.toLowerCase())),
+      ...conversationCommands,
+    ],
+    [staticCommands, query, conversationCommands],
+  )
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedIndex((i) => Math.min(i + 1, allCommands.length - 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedIndex((i) => Math.max(i - 1, 0))
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        allCommands[selectedIndex]?.action()
+      } else if (e.key === 'Escape') {
+        onClose()
+      }
+    },
+    [allCommands, selectedIndex, onClose],
+  )
 
   if (!open) return null
 
@@ -190,7 +222,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               >
                 <span className="text-text-muted">{cmd.icon}</span>
                 <span className="flex-1">{cmd.label}</span>
-                <span className="font-mono text-[9px] uppercase tracking-widest text-text-muted">{cmd.category}</span>
+                <span className="font-mono text-[9px] uppercase tracking-widest text-text-muted">
+                  {cmd.category}
+                </span>
               </button>
             ))
           )}

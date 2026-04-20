@@ -26,7 +26,18 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new() -> Result<Self> {
-        let db = Arc::new(Database::new().await?);
+        Self::from_database(Arc::new(Database::new().await?)).await
+    }
+
+    pub async fn new_in_memory() -> Result<Self> {
+        Self::from_database(Arc::new(Database::new_in_memory().await?)).await
+    }
+
+    pub async fn new_with_db_path<P: AsRef<std::path::Path>>(db_path: P) -> Result<Self> {
+        Self::from_database(Arc::new(Database::open_at(db_path).await?)).await
+    }
+
+    async fn from_database(db: Arc<Database>) -> Result<Self> {
         let config = Arc::new(ConfigStore::new(db.clone()).await?);
         let llama = Arc::new(RwLock::new(LlamaProcessManager::new(
             config.clone(),

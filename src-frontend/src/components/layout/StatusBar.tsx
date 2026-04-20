@@ -18,8 +18,8 @@ export function StatusBar() {
   })
 
   const activeModel = models.find((model) => model.id === activeModelId)
-  const activeDownloads = (downloadsData?.downloads ?? []).filter((download) =>
-    download.status === 'downloading' || download.status === 'queued',
+  const activeDownloads = (downloadsData?.downloads ?? []).filter(
+    (download) => download.status === 'downloading' || download.status === 'queued',
   )
   const primaryDownload = activeDownloads[0]
 
@@ -30,10 +30,14 @@ export function StatusBar() {
           {activeModel ? activeModel.name : 'No model loaded'}
         </span>
         {activeModel && (
-          <span className="font-mono text-[10px] text-text-muted/50">{formatBytes(activeModel.size_bytes)}</span>
+          <span className="font-mono text-[10px] text-text-muted/50">
+            {formatBytes(activeModel.size_bytes)}
+          </span>
         )}
         {serverStatus === 'running' && (
-          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-success">● Live</span>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-success">
+            ● Live
+          </span>
         )}
         {primaryDownload && (
           <span className="font-mono text-[10px] uppercase tracking-wider text-primary truncate">
@@ -42,8 +46,12 @@ export function StatusBar() {
         )}
       </div>
       <div className="flex items-center gap-3">
-        <kbd className="border border-border bg-surface px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-text-muted">Ctrl+K</kbd>
-        <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted/60">{profile}</span>
+        <kbd className="border border-border bg-surface px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-text-muted">
+          Ctrl+K
+        </kbd>
+        <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted/60">
+          {profile}
+        </span>
         <span className="font-mono text-[10px] text-text-muted/40">v0.1.0</span>
       </div>
     </footer>

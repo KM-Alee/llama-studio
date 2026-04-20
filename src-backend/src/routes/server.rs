@@ -8,6 +8,7 @@ use serde_json::{Value, json};
 
 use crate::error::AppResult;
 use crate::services::llama_process;
+use crate::services::runtime_tools;
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
@@ -17,6 +18,7 @@ pub fn router() -> Router<AppState> {
         .route("/status", get(server_status))
         .route("/logs", get(get_logs))
         .route("/flags", get(get_flags).put(set_flags))
+        .route("/dependencies", get(get_dependencies))
         .route("/metrics", get(get_metrics))
         .route("/hardware", get(detect_hardware))
 }
@@ -110,6 +112,17 @@ async fn get_metrics(State(state): State<AppState>) -> AppResult<Json<Value>> {
     Ok(Json(json!({
         "available": true,
         "health": health,
+    })))
+}
+
+async fn get_dependencies(State(state): State<AppState>) -> AppResult<Json<Value>> {
+    let config = state.config.get_all().await?;
+    let dependencies = runtime_tools::detect_runtime_dependencies(&config.llama_cpp_path);
+
+    Ok(Json(json!({
+        "platform": std::env::consts::OS,
+        "backend_bundled": true,
+        "dependencies": dependencies,
     })))
 }
 

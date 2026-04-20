@@ -1,4 +1,4 @@
-//! Integration tests for the Llama Studio backend.
+//! Integration tests for the LlamaStudio backend.
 //!
 //! Tests the HTTP API endpoints by launching the full Axum router
 //! with an in-memory test state. Does not require a running llama.cpp
@@ -15,12 +15,12 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 
 // Re-use the application's modules
-use ai_studio_backend::routes;
-use ai_studio_backend::state::AppState;
+use llamastudio_backend::routes;
+use llamastudio_backend::state::AppState;
 
 /// Build the full application router (mirrors main.rs) for test use.
 async fn build_test_app() -> Router {
-    let state = AppState::new()
+    let state = AppState::new_in_memory()
         .await
         .expect("Failed to initialize test AppState");
 
@@ -112,7 +112,7 @@ async fn health_returns_ok() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "ok");
-    assert_eq!(body["name"], "Llama Studio");
+    assert_eq!(body["name"], "LlamaStudio");
     assert!(body["version"].is_string());
 }
 
@@ -726,7 +726,7 @@ async fn config_rejects_same_ports() {
     let (status, body) = put_json(
         &app,
         "/api/v1/config",
-        json!({ "app_port": 8080, "llama_server_port": 8080 }),
+        json!({ "app_port": 6868, "llama_server_port": 6868 }),
     )
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);

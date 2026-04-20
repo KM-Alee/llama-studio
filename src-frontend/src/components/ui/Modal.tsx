@@ -28,21 +28,24 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
     <div
       ref={overlayRef}
       className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={(e) => { if (e.target === overlayRef.current) onClose() }}
+      onClick={(e) => {
+        if (e.target === overlayRef.current) onClose()
+      }}
     >
       <div className="absolute inset-0 bg-black/40" />
       <div
         className={cn(
-          'relative w-full max-w-md mx-4 border-2 border-border bg-surface shadow-[4px_4px_0px_var(--color-border)]',
-          className
+          'ui-panel relative mx-4 w-full max-w-md',
+          className,
         )}
       >
         {title && (
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-sm font-bold text-text">{title}</h2>
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+              className="ui-icon-button h-8 w-8"
             >
               <X className="w-4 h-4" />
             </button>
@@ -65,26 +68,36 @@ interface ConfirmModalProps {
 }
 
 export function ConfirmModal({
-  open, onClose, onConfirm, title, description,
-  confirmLabel = 'Confirm', confirmVariant = 'danger'
+  open,
+  onClose,
+  onConfirm,
+  title,
+  description,
+  confirmLabel = 'Confirm',
+  confirmVariant = 'danger',
 }: ConfirmModalProps) {
   return (
     <Modal open={open} onClose={onClose} title={title}>
       <p className="text-sm text-text-secondary mb-5">{description}</p>
       <div className="flex justify-end gap-2">
         <button
+          type="button"
           onClick={onClose}
-          className="border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover"
+          className="ui-button ui-button-secondary"
         >
           Cancel
         </button>
         <button
-          onClick={() => { onConfirm(); onClose() }}
+          type="button"
+          onClick={() => {
+            onConfirm()
+            onClose()
+          }}
           className={cn(
-            'border-2 px-4 py-2 text-sm font-semibold text-white transition-colors',
+            'ui-button text-white',
             confirmVariant === 'danger'
-              ? 'border-error bg-error hover:bg-error/90'
-              : 'border-primary bg-primary hover:bg-primary-hover'
+              ? 'ui-button-danger'
+              : 'ui-button-primary',
           )}
         >
           {confirmLabel}
@@ -106,8 +119,14 @@ interface InputModalProps {
 }
 
 export function InputModal({
-  open, onClose, onSubmit, title, description,
-  placeholder, submitLabel = 'Submit', initialValue = ''
+  open,
+  onClose,
+  onSubmit,
+  title,
+  description,
+  placeholder,
+  submitLabel = 'Submit',
+  initialValue = '',
 }: InputModalProps) {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -133,19 +152,23 @@ export function InputModal({
         type="text"
         defaultValue={initialValue}
         placeholder={placeholder}
-        onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit() }}
-        className="w-full border-2 border-border bg-surface-dim px-3 py-2.5 text-sm text-text outline-none transition-colors placeholder-text-muted focus:border-primary"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSubmit()
+        }}
+        className="ui-input ui-input-soft"
       />
       <div className="flex justify-end gap-2 mt-4">
         <button
+          type="button"
           onClick={onClose}
-          className="border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover"
+          className="ui-button ui-button-secondary"
         >
           Cancel
         </button>
         <button
+          type="button"
           onClick={handleSubmit}
-          className="border-2 border-primary bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+          className="ui-button ui-button-primary"
         >
           {submitLabel}
         </button>

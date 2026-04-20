@@ -1,4 +1,4 @@
-# AI Studio Agents
+# LlamaStudio Agents
 
 ## Available Agents
 

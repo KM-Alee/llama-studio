@@ -2,7 +2,7 @@
 
 ## Supported scope
 
-AI Studio is designed as a local-first application. The main security boundary is that both the app server and managed `llama-server` process stay bound to `127.0.0.1`.
+LlamaStudio is designed as a local-first application. The main security boundary is that both the app server and managed `llama-server` process stay bound to `127.0.0.1`.
 
 Security-sensitive areas include:
 

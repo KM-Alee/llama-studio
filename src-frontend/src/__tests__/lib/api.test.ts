@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  createConversation,
-  exportConversationMarkdown,
-  getModels,
-  streamChat,
-} from '@/lib/api'
+import { createConversation, exportConversationMarkdown, getModels, streamChat } from '@/lib/api'
 
 describe('api helpers', () => {
   afterEach(() => {

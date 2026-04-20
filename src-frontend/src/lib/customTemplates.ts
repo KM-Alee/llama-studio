@@ -17,9 +17,10 @@ function normalizeTemplate(value: unknown): Preset | null {
     return {
       id: value.id,
       name: value.name,
-      description: typeof value.description === 'string' || value.description === null
-        ? value.description ?? null
-        : null,
+      description:
+        typeof value.description === 'string' || value.description === null
+          ? (value.description ?? null)
+          : null,
       profile: typeof value.profile === 'string' ? value.profile : 'normal',
       parameters: isRecord(value.parameters) ? value.parameters : {},
       system_prompt: typeof value.system_prompt === 'string' ? value.system_prompt : null,
@@ -93,6 +94,10 @@ export function createCustomTemplate(name: string, systemPrompt: string): Preset
   }
 }
 
+export function isCustomTemplateId(templateId: string | null | undefined) {
+  return typeof templateId === 'string' && templateId.startsWith('custom-')
+}
+
 export function useCustomTemplates() {
   const [customTemplates, setCustomTemplates] = useState<Preset[]>(() => loadCustomTemplates())
 
@@ -113,13 +118,16 @@ export function useCustomTemplates() {
     }
   }, [])
 
-  const updateCustomTemplates = useCallback((next: Preset[] | ((current: Preset[]) => Preset[])) => {
-    setCustomTemplates((current) => {
-      const resolved = typeof next === 'function' ? next(current) : next
-      saveCustomTemplates(resolved)
-      return resolved
-    })
-  }, [])
+  const updateCustomTemplates = useCallback(
+    (next: Preset[] | ((current: Preset[]) => Preset[])) => {
+      setCustomTemplates((current) => {
+        const resolved = typeof next === 'function' ? next(current) : next
+        saveCustomTemplates(resolved)
+        return resolved
+      })
+    },
+    [],
+  )
 
   return { customTemplates, setCustomTemplates: updateCustomTemplates }
 }

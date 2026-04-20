@@ -1,7 +1,17 @@
 import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Save, Cpu, HardDrive, Info, Microchip, Gauge, Rocket } from 'lucide-react'
-import { getConfig, updateConfig, detectHardware, getServerFlags, setServerFlags, type AppConfig, type HardwareInfo } from '@/lib/api'
+import { Save, Cpu, HardDrive, Info, Microchip, Gauge, Rocket, ExternalLink } from 'lucide-react'
+import {
+  getConfig,
+  updateConfig,
+  detectHardware,
+  getDependencyStatus,
+  getServerFlags,
+  setServerFlags,
+  type AppConfig,
+  type DependencyStatusResponse,
+  type HardwareInfo,
+} from '@/lib/api'
 import { useAppStore, type Theme } from '@/stores/appStore'
 import toast from 'react-hot-toast'
 import { formatBytes } from '@/lib/utils'
@@ -10,9 +20,9 @@ const DEFAULT_FORM: AppConfig = {
   llama_cpp_path: '',
   models_directory: '',
   default_profile: 'normal',
-  theme: 'system',
-  llama_server_port: 8080,
-  app_port: 3000,
+  theme: 'light',
+  llama_server_port: 6970,
+  app_port: 6868,
   context_size: 4096,
   gpu_layers: -1,
   threads: 0,
@@ -27,7 +37,15 @@ const DEFAULT_FORM: AppConfig = {
   cont_batching: true,
 }
 
-function SettingsCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+function SettingsCard({
+  title,
+  description,
+  children,
+}: {
+  title: string
+  description?: string
+  children: ReactNode
+}) {
   return (
     <section className="border-2 border-border bg-surface-dim p-5">
       <h2 className="mb-0.5 text-sm font-bold text-text">{title}</h2>
@@ -63,15 +81,17 @@ function Toggle({
   description?: string
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg px-1 py-2">
+    <div className="flex items-center gap-3 border border-border bg-surface px-3 py-3">
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-primary' : 'bg-border'}`}
+        className={`relative h-5 w-9 shrink-0 transition-colors ${checked ? 'bg-primary' : 'bg-border'}`}
       >
-        <span className={`absolute left-0.5 top-0.5 h-4 w-4 bg-white shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`} />
+        <span
+          className={`absolute left-0.5 top-0.5 h-4 w-4 bg-white shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`}
+        />
       </button>
       <div>
         <span className="text-sm font-medium text-text">{label}</span>
@@ -82,10 +102,37 @@ function Toggle({
 }
 
 const HARDWARE_PRESETS = [
-  { name: 'CPU Only', icon: Cpu, desc: 'No GPU acceleration', config: { gpu_layers: 0, threads: 0, flash_attention: false, mmap: true, mlock: false } },
-  { name: 'Low VRAM', icon: Microchip, desc: '4-6 GB GPU', config: { gpu_layers: 20, threads: 0, flash_attention: true, mmap: true, mlock: false } },
-  { name: 'Mid VRAM', icon: Gauge, desc: '8-12 GB GPU', config: { gpu_layers: -1, threads: 0, flash_attention: true, mmap: true, mlock: false } },
-  { name: 'High VRAM', icon: Rocket, desc: '16+ GB GPU', config: { gpu_layers: -1, threads: 0, flash_attention: true, mmap: false, mlock: true, cont_batching: true } },
+  {
+    name: 'CPU Only',
+    icon: Cpu,
+    desc: 'No GPU acceleration',
+    config: { gpu_layers: 0, threads: 0, flash_attention: false, mmap: true, mlock: false },
+  },
+  {
+    name: 'Low VRAM',
+    icon: Microchip,
+    desc: '4-6 GB GPU',
+    config: { gpu_layers: 20, threads: 0, flash_attention: true, mmap: true, mlock: false },
+  },
+  {
+    name: 'Mid VRAM',
+    icon: Gauge,
+    desc: '8-12 GB GPU',
+    config: { gpu_layers: -1, threads: 0, flash_attention: true, mmap: true, mlock: false },
+  },
+  {
+    name: 'High VRAM',
+    icon: Rocket,
+    desc: '16+ GB GPU',
+    config: {
+      gpu_layers: -1,
+      threads: 0,
+      flash_attention: true,
+      mmap: false,
+      mlock: true,
+      cont_batching: true,
+    },
+  },
 ]
 
 function SettingsEditor({
@@ -127,24 +174,26 @@ function SettingsEditor({
     onError: (error: Error) => toast.error(error.message || 'Failed to save settings'),
   })
 
-  const applyPreset = (preset: typeof HARDWARE_PRESETS[number]) => {
+  const applyPreset = (preset: (typeof HARDWARE_PRESETS)[number]) => {
     setForm((current) => ({ ...current, ...preset.config }))
     toast.success(`Applied "${preset.name}" preset`)
   }
 
-  const inputClass = 'w-full border-2 border-border bg-surface px-3 py-2.5 text-sm text-text outline-none transition-colors placeholder-text-muted focus:border-primary'
+  const inputClass =
+    'ui-input'
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="page-shell page-shell-narrow">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-text">Settings</h1>
-          <p className="mt-1 text-sm text-text-muted">Configure Llama Studio and llama.cpp</p>
+          <p className="mt-1 text-sm text-text-muted">Configure LlamaStudio and llama.cpp</p>
         </div>
         <button
+          type="button"
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending}
-          className="flex items-center gap-2 border-2 border-primary bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+          className="ui-button ui-button-primary disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
           Save Changes
@@ -152,7 +201,7 @@ function SettingsEditor({
       </div>
 
       <div className="space-y-4">
-        <SettingsCard title="Appearance" description="Customize how Llama Studio looks">
+        <SettingsCard title="Appearance" description="Customize how LlamaStudio looks">
           <label className="block">
             <FieldLabel>Theme</FieldLabel>
             <select
@@ -167,10 +216,12 @@ function SettingsEditor({
           </label>
         </SettingsCard>
 
-        <SettingsCard title="Llama Studio" description="Frontend and server wiring">
+        <SettingsCard title="LlamaStudio" description="Frontend and server wiring">
           <div className="space-y-4">
             <label className="block">
-              <FieldLabel hint="HTTP port used by the Llama Studio backend. Restart the app after changing it.">App Port</FieldLabel>
+              <FieldLabel hint="HTTP port used by the LlamaStudio backend. Restart the app after changing it.">
+                App Port
+              </FieldLabel>
               <input
                 type="number"
                 value={form.app_port}
@@ -184,7 +235,9 @@ function SettingsEditor({
         <SettingsCard title="llama.cpp" description="Server binary and model storage settings">
           <div className="space-y-4">
             <label className="block">
-              <FieldLabel hint="Path to llama-server binary. Leave empty to use PATH.">Binary Path</FieldLabel>
+              <FieldLabel hint="Path to llama-server binary. Leave empty to use PATH.">
+                Binary Path
+              </FieldLabel>
               <input
                 type="text"
                 value={form.llama_cpp_path}
@@ -194,7 +247,9 @@ function SettingsEditor({
               />
             </label>
             <label className="block">
-              <FieldLabel hint="Directory where GGUF model files are stored.">Models Directory</FieldLabel>
+              <FieldLabel hint="Directory where GGUF model files are stored.">
+                Models Directory
+              </FieldLabel>
               <input
                 type="text"
                 value={form.models_directory}
@@ -207,20 +262,25 @@ function SettingsEditor({
               <input
                 type="number"
                 value={form.llama_server_port}
-                onChange={(event) => setForm({ ...form, llama_server_port: Number(event.target.value) })}
+                onChange={(event) =>
+                  setForm({ ...form, llama_server_port: Number(event.target.value) })
+                }
                 className={inputClass}
               />
             </label>
           </div>
         </SettingsCard>
 
+        <DependencySetupCard />
+
         <SettingsCard title="Quick Setup" description="Choose a preset matching your hardware">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {HARDWARE_PRESETS.map((preset) => (
               <button
                 key={preset.name}
+                type="button"
                 onClick={() => applyPreset(preset)}
-                className="flex items-center gap-3 border border-border p-3 text-left transition-colors hover:border-primary hover:bg-surface-hover"
+                className="flex items-center gap-3 border border-border bg-surface p-3 text-left transition-colors hover:border-primary hover:bg-surface-hover"
               >
                 <div className="flex h-8 w-8 items-center justify-center border border-border bg-surface">
                   <preset.icon className="h-4 w-4 text-text-secondary" />
@@ -246,17 +306,23 @@ function SettingsEditor({
               />
             </label>
             <label className="block">
-              <FieldLabel hint="Number of model layers to offload to GPU. -1 offloads all layers.">GPU Layers</FieldLabel>
+              <FieldLabel hint="Number of model layers to offload to GPU. -1 offloads all layers.">
+                GPU Layers
+              </FieldLabel>
               <input
                 type="number"
                 value={form.gpu_layers}
                 onChange={(event) => setForm({ ...form, gpu_layers: Number(event.target.value) })}
                 className={inputClass}
               />
-              <span className="mt-1 block text-xs text-text-muted">-1 = all layers on GPU, 0 = CPU only</span>
+              <span className="mt-1 block text-xs text-text-muted">
+                -1 = all layers on GPU, 0 = CPU only
+              </span>
             </label>
             <label className="block">
-              <FieldLabel hint="Number of CPU threads for inference. 0 = auto-detect.">Threads</FieldLabel>
+              <FieldLabel hint="Number of CPU threads for inference. 0 = auto-detect.">
+                Threads
+              </FieldLabel>
               <input
                 type="number"
                 value={form.threads}
@@ -279,21 +345,35 @@ function SettingsEditor({
             <SettingsCard title="Batching" description="Token batching for throughput tuning">
               <div className="space-y-4">
                 <label className="block">
-                  <FieldLabel hint="Prompt processing batch size. Higher = faster prompt processing, more VRAM.">Batch Size</FieldLabel>
+                  <FieldLabel hint="Prompt processing batch size. Higher = faster prompt processing, more VRAM.">
+                    Batch Size
+                  </FieldLabel>
                   <input
                     type="number"
                     value={form.batch_size ?? ''}
-                    onChange={(event) => setForm({ ...form, batch_size: event.target.value ? Number(event.target.value) : null })}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        batch_size: event.target.value ? Number(event.target.value) : null,
+                      })
+                    }
                     placeholder="Default (512)"
                     className={inputClass}
                   />
                 </label>
                 <label className="block">
-                  <FieldLabel hint="Micro-batch size for prompt processing.">Micro-batch Size</FieldLabel>
+                  <FieldLabel hint="Micro-batch size for prompt processing.">
+                    Micro-batch Size
+                  </FieldLabel>
                   <input
                     type="number"
                     value={form.ubatch_size ?? ''}
-                    onChange={(event) => setForm({ ...form, ubatch_size: event.target.value ? Number(event.target.value) : null })}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        ubatch_size: event.target.value ? Number(event.target.value) : null,
+                      })
+                    }
                     placeholder="Default (512)"
                     className={inputClass}
                   />
@@ -324,13 +404,20 @@ function SettingsEditor({
               </div>
             </SettingsCard>
 
-            <SettingsCard title="RoPE" description="Rotary Position Embedding configuration for extended context">
+            <SettingsCard
+              title="RoPE"
+              description="Rotary Position Embedding configuration for extended context"
+            >
               <div className="space-y-4">
                 <label className="block">
-                  <FieldLabel hint="RoPE scaling method: none, linear, yarn">Scaling Method</FieldLabel>
+                  <FieldLabel hint="RoPE scaling method: none, linear, yarn">
+                    Scaling Method
+                  </FieldLabel>
                   <select
                     value={form.rope_scaling ?? ''}
-                    onChange={(event) => setForm({ ...form, rope_scaling: event.target.value || null })}
+                    onChange={(event) =>
+                      setForm({ ...form, rope_scaling: event.target.value || null })
+                    }
                     className={inputClass}
                   >
                     <option value="">Default (none)</option>
@@ -344,7 +431,12 @@ function SettingsEditor({
                     type="number"
                     step="any"
                     value={form.rope_freq_base ?? ''}
-                    onChange={(event) => setForm({ ...form, rope_freq_base: event.target.value ? Number(event.target.value) : null })}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        rope_freq_base: event.target.value ? Number(event.target.value) : null,
+                      })
+                    }
                     placeholder="Default (model-specific)"
                     className={inputClass}
                   />
@@ -355,7 +447,12 @@ function SettingsEditor({
                     type="number"
                     step="any"
                     value={form.rope_freq_scale ?? ''}
-                    onChange={(event) => setForm({ ...form, rope_freq_scale: event.target.value ? Number(event.target.value) : null })}
+                    onChange={(event) =>
+                      setForm({
+                        ...form,
+                        rope_freq_scale: event.target.value ? Number(event.target.value) : null,
+                      })
+                    }
                     placeholder="Default (1.0)"
                     className={inputClass}
                   />
@@ -370,8 +467,8 @@ function SettingsEditor({
                   value={customFlags}
                   onChange={(event) => setCustomFlags(event.target.value)}
                   placeholder="--verbose-prompt --log-disable"
-                  className={`${inputClass} font-mono`}
-                />
+                    className={`${inputClass} font-mono`}
+                  />
                 <span className="mt-1 block text-xs text-text-muted">
                   Space-separated flags passed directly to llama-server
                 </span>
@@ -382,12 +479,14 @@ function SettingsEditor({
 
         {hardware && (
           <SettingsCard title="Hardware" description="Detected system specifications">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               {hardware.cpu_cores && (
                 <div className="flex items-center gap-3 border border-border bg-surface p-4">
                   <Cpu className="h-5 w-5 shrink-0 text-text-muted" />
                   <div>
-                    <div className="text-sm font-semibold text-text">{hardware.cpu_cores} cores</div>
+                    <div className="text-sm font-semibold text-text">
+                      {hardware.cpu_cores} cores
+                    </div>
                     <div className="text-xs text-text-muted">CPU</div>
                   </div>
                 </div>
@@ -396,7 +495,9 @@ function SettingsEditor({
                 <div className="flex items-center gap-3 border border-border bg-surface p-4">
                   <HardDrive className="h-5 w-5 shrink-0 text-text-muted" />
                   <div>
-                    <div className="text-sm font-semibold text-text">{formatBytes(hardware.total_ram_bytes)}</div>
+                    <div className="text-sm font-semibold text-text">
+                      {formatBytes(hardware.total_ram_bytes)}
+                    </div>
                     <div className="text-xs text-text-muted">RAM</div>
                   </div>
                 </div>
@@ -409,12 +510,81 @@ function SettingsEditor({
   )
 }
 
+function DependencySetupCard() {
+  const { data, isLoading, isError } = useQuery<DependencyStatusResponse>({
+    queryKey: ['dependency-status'],
+    queryFn: getDependencyStatus,
+    staleTime: 30_000,
+  })
+
+  return (
+    <SettingsCard
+      title="Runtime Dependencies"
+      description="LlamaStudio already bundles its own backend. Install llama.cpp once so local inference works out of the box."
+    >
+      {isLoading ? (
+        <p className="text-sm text-text-muted">Checking local runtime tools...</p>
+      ) : isError || !data ? (
+        <p className="text-sm text-error">Failed to detect local runtime dependencies.</p>
+      ) : (
+        <div className="space-y-3">
+          {data.dependencies.map((dependency) => (
+            <div key={dependency.key} className="border border-border bg-surface p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-text">{dependency.label}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted">
+                      {dependency.required ? 'required' : 'optional'}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                    {dependency.help_text}
+                  </p>
+                  <p className="mt-2 font-mono text-[11px] text-text-secondary">
+                    {dependency.installed
+                      ? dependency.resolved_path ?? 'Detected on system'
+                      : 'Not currently installed'}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div
+                    className={dependency.installed ? 'text-xs font-semibold text-success' : 'text-xs font-semibold text-warning'}
+                  >
+                    {dependency.installed ? 'Installed' : 'Missing'}
+                  </div>
+                  <a
+                    href={dependency.install_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Install Guide
+                  </a>
+                </div>
+              </div>
+            </div>
+          ))}
+          <p className="text-xs leading-relaxed text-text-muted">
+            Hugging Face browsing and downloads work inside LlamaStudio already. The Hugging Face CLI is optional and only needed if you prefer using it separately.
+          </p>
+        </div>
+      )}
+    </SettingsCard>
+  )
+}
+
 export function SettingsPage() {
   const profile = useAppStore((s) => s.profile)
   const theme = useAppStore((s) => s.theme)
   const setTheme = useAppStore((s) => s.setTheme)
 
-  const { data: config, isLoading: configLoading, isError: configError } = useQuery({
+  const {
+    data: config,
+    isLoading: configLoading,
+    isError: configError,
+  } = useQuery({
     queryKey: ['config'],
     queryFn: getConfig,
   })
@@ -433,7 +603,7 @@ export function SettingsPage() {
 
   if (configLoading) {
     return (
-      <div className="mx-auto flex h-full max-w-2xl items-center justify-center p-6">
+        <div className="page-shell page-shell-narrow flex h-full items-center justify-center">
         <div className="text-sm text-text-muted">Loading settings...</div>
       </div>
     )
@@ -441,7 +611,7 @@ export function SettingsPage() {
 
   if (!config || configError) {
     return (
-      <div className="mx-auto flex h-full max-w-2xl items-center justify-center p-6">
+        <div className="page-shell page-shell-narrow flex h-full items-center justify-center">
         <div className="text-sm text-error">Failed to load settings.</div>
       </div>
     )

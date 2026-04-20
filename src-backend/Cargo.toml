@@ -1,5 +1,5 @@
 [package]
-name = "ai-studio-backend"
+name = "llamastudio-backend"
 version = "0.1.0"
 edition = "2024"
 
@@ -37,6 +37,7 @@ chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1"
 thiserror = "2"
 dirs = "6"
+mime_guess = "2"
 urlencoding = "2"
 url = "2"
 

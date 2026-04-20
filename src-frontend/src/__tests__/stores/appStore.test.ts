@@ -5,7 +5,7 @@ function resetStore() {
   useAppStore.persist.clearStorage()
   useAppStore.setState({
     profile: 'normal',
-    theme: 'system',
+    theme: 'light',
     sidebarOpen: true,
     commandPaletteOpen: false,
   })
@@ -17,7 +17,7 @@ describe('appStore', () => {
   it('has correct initial state', () => {
     const state = useAppStore.getState()
     expect(state.profile).toBe('normal')
-    expect(state.theme).toBe('system')
+    expect(state.theme).toBe('light')
     expect(state.sidebarOpen).toBe(true)
     expect(state.commandPaletteOpen).toBe(false)
   })

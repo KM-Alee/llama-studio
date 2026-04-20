@@ -58,11 +58,16 @@ export function ModelSelector() {
 
   const activeModel = models.find((model) => model.id === activeModelId)
   const modelList = data?.models ?? models
-  const isLoading = serverStatus === 'starting' || serverStatus === 'stopping' || startMutation.isPending || stopMutation.isPending
+  const isLoading =
+    serverStatus === 'starting' ||
+    serverStatus === 'stopping' ||
+    startMutation.isPending ||
+    stopMutation.isPending
 
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         className="flex max-w-[240px] items-center gap-2 border border-border bg-surface-dim px-3 py-1.5 text-sm transition-colors hover:bg-surface-hover"
       >
@@ -78,7 +83,7 @@ export function ModelSelector() {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-80 overflow-hidden border-2 border-border bg-surface shadow-[2px_2px_0px_var(--color-border)]">
+        <div className="ui-panel absolute left-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden">
           {modelList.length === 0 ? (
             <div className="p-5 text-center text-sm text-text-muted">
               No models available. Scan for models on the Models page.
@@ -120,7 +125,9 @@ export function ModelSelector() {
                         </span>
                       </span>
                       {isActive && (
-                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-primary">Active</span>
+                        <span className="font-mono text-[10px] font-bold uppercase tracking-widest text-primary">
+                          Active
+                        </span>
                       )}
                     </span>
                   </button>

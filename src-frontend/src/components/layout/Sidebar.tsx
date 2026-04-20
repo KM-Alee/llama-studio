@@ -14,7 +14,13 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/stores/appStore'
 import { useChatStore } from '@/stores/chatStore'
-import { getConversations, deleteConversation, updateConversation, searchConversations, type Conversation } from '@/lib/api'
+import {
+  getConversations,
+  deleteConversation,
+  updateConversation,
+  searchConversations,
+  type Conversation,
+} from '@/lib/api'
 import { cn, formatDate } from '@/lib/utils'
 import { ConfirmModal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
@@ -44,9 +50,8 @@ export function Sidebar() {
   })
 
   const allConversations = data?.conversations ?? []
-  const conversations = searchTerm.length >= 2
-    ? (searchResults?.conversations ?? [])
-    : allConversations
+  const conversations =
+    searchTerm.length >= 2 ? (searchResults?.conversations ?? []) : allConversations
 
   const handleDelete = async (conversationId: string) => {
     try {
@@ -83,7 +88,12 @@ export function Sidebar() {
 
   const navItems = [
     { path: '/models', label: 'Models', icon: Box },
-    { path: '/models/analytics', label: 'Analytics', icon: Activity, match: (p: string) => p.startsWith('/models/analytics') },
+    {
+      path: '/models/analytics',
+      label: 'Analytics',
+      icon: Activity,
+      match: (p: string) => p.startsWith('/models/analytics'),
+    },
     { path: '/settings', label: 'Settings', icon: Settings },
   ]
 
@@ -104,12 +114,13 @@ export function Sidebar() {
             className="h-9 w-9 shrink-0 border-2 border-border bg-surface-dim object-cover"
           />
           <span className="font-mono text-xs font-black uppercase tracking-[0.2em] text-text">
-            LLAMA STUDIO
+            LLAMASTUDIO
           </span>
         </div>
         <button
+          type="button"
           onClick={toggleSidebar}
-          className="p-1.5 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+          className="ui-icon-button h-8 w-8"
           title="Close sidebar"
           aria-label="Close sidebar"
         >
@@ -120,8 +131,9 @@ export function Sidebar() {
       {/* New chat + Search */}
       <div className="space-y-2 border-b border-border px-3 py-3">
         <button
+          type="button"
           onClick={handleNewChat}
-          className="flex w-full items-center justify-center gap-2 border-2 border-primary bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+          className="ui-button ui-button-primary w-full"
         >
           <Plus className="w-4 h-4" />
           New Chat
@@ -152,7 +164,9 @@ export function Sidebar() {
         ) : conversations.length === 0 ? (
           <div className="px-4 py-8 text-center text-xs text-text-muted">
             {searchTerm.length >= 2
-              ? isSearching ? 'Searching…' : 'No matching chats.'
+              ? isSearching
+                ? 'Searching…'
+                : 'No matching chats.'
               : 'No conversations yet.'}
           </div>
         ) : (
@@ -189,8 +203,12 @@ export function Sidebar() {
                   >
                     <MessageSquare className="w-3.5 h-3.5 shrink-0 text-text-muted/60" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm leading-snug text-text">{conversation.title}</span>
-                      <span className="block font-mono text-[10px] text-text-muted">{formatDate(conversation.updated_at)}</span>
+                      <span className="block truncate text-sm leading-snug text-text">
+                        {conversation.title}
+                      </span>
+                      <span className="block font-mono text-[10px] text-text-muted">
+                        {formatDate(conversation.updated_at)}
+                      </span>
                     </span>
                   </button>
                 )}
@@ -202,7 +220,7 @@ export function Sidebar() {
                       setRenameTarget(conversation.id)
                       setRenameValue(conversation.title)
                     }}
-                    className="p-1 text-text-muted transition-colors hover:bg-primary/10 hover:text-primary"
+                    className="ui-icon-button h-7 w-7 hover:text-primary"
                     title="Rename"
                   >
                     <Pencil className="w-3 h-3" />
@@ -213,7 +231,7 @@ export function Sidebar() {
                       e.stopPropagation()
                       setDeleteTarget(conversation.id)
                     }}
-                    className="p-1 text-text-muted transition-colors hover:bg-error/10 hover:text-error"
+                    className="ui-icon-button h-7 w-7 hover:text-error"
                     title="Delete"
                   >
                     <Trash2 className="w-3 h-3" />

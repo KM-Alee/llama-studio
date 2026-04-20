@@ -22,25 +22,46 @@ const noopStorage: StateStorage = {
   removeItem: () => {},
 }
 
+const APP_STORAGE_KEY = 'llamastudio-app'
+const LEGACY_APP_STORAGE_KEY = 'ai-studio-app'
+
 const appStorage = createJSONStorage(() => {
   if (
-    typeof window !== 'undefined' &&
-    window.localStorage &&
-    typeof window.localStorage.getItem === 'function' &&
-    typeof window.localStorage.setItem === 'function' &&
-    typeof window.localStorage.removeItem === 'function'
+    typeof window === 'undefined' ||
+    !window.localStorage ||
+    typeof window.localStorage.getItem !== 'function' ||
+    typeof window.localStorage.setItem !== 'function' ||
+    typeof window.localStorage.removeItem !== 'function'
   ) {
-    return window.localStorage
+    return noopStorage
   }
 
-  return noopStorage
+  return {
+    getItem: (name) => {
+      const current = window.localStorage.getItem(name)
+      if (current != null) return current
+
+      if (name === APP_STORAGE_KEY) {
+        const legacy = window.localStorage.getItem(LEGACY_APP_STORAGE_KEY)
+        if (legacy != null) {
+          window.localStorage.setItem(APP_STORAGE_KEY, legacy)
+          window.localStorage.removeItem(LEGACY_APP_STORAGE_KEY)
+          return legacy
+        }
+      }
+
+      return null
+    },
+    setItem: (name, value) => window.localStorage.setItem(name, value),
+    removeItem: (name) => window.localStorage.removeItem(name),
+  }
 })
 
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       profile: 'normal',
-      theme: 'system',
+      theme: 'light',
       sidebarOpen: true,
       commandPaletteOpen: false,
       setProfile: (profile) => set({ profile }),
@@ -53,7 +74,7 @@ export const useAppStore = create<AppState>()(
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
     }),
     {
-      name: 'ai-studio-app',
+      name: APP_STORAGE_KEY,
       storage: appStorage,
       partialize: (state) => ({
         profile: state.profile,

@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
@@ -10,6 +10,7 @@ use tokio::sync::mpsc;
 use tokio::time::timeout;
 
 use crate::services::config_store::ConfigStore;
+use crate::services::runtime_tools;
 
 const INSPECTION_READ_TIMEOUT: Duration = Duration::from_secs(3);
 const MAX_CAPTURE_LINES: usize = 160;
@@ -54,7 +55,7 @@ impl ModelInspector {
 
     pub async fn inspect(&self, model_path: &Path) -> Result<ModelInspection> {
         let config = self.config.get_all().await?;
-        let binary = resolve_cli_path(&config.llama_cpp_path);
+        let binary = runtime_tools::command_for_llama_cli(&config.llama_cpp_path);
         let command = format!(
             "{} -v -m {} -n 0 -p '' -c 0 -ngl 0 --no-perf",
             binary.display(),
@@ -169,31 +170,6 @@ where
         }
     }
     Ok(())
-}
-
-fn resolve_cli_path(configured_server_path: &str) -> PathBuf {
-    if configured_server_path.is_empty() {
-        return PathBuf::from("llama-cli");
-    }
-
-    let configured = Path::new(configured_server_path);
-
-    if configured.is_dir() {
-        return configured.join("llama-cli");
-    }
-
-    let Some(file_name) = configured.file_name().and_then(|value| value.to_str()) else {
-        return PathBuf::from("llama-cli");
-    };
-
-    if file_name == "llama-cli" {
-        return configured.to_path_buf();
-    }
-
-    configured
-        .parent()
-        .map(|parent| parent.join("llama-cli"))
-        .unwrap_or_else(|| PathBuf::from("llama-cli"))
 }
 
 fn parse_line(line: &str, inspection: &mut ModelInspection) {

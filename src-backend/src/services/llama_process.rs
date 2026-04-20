@@ -13,6 +13,7 @@ use crate::db::Database;
 use crate::error::{AppError, AppResult};
 use crate::routes::chat::ChatRequest;
 use crate::services::config_store::ConfigStore;
+use crate::services::runtime_tools;
 
 /// How long to wait for llama.cpp /health to become ready after spawn.
 const HEALTH_POLL_INTERVAL_MS: u64 = 500;
@@ -170,11 +171,7 @@ impl LlamaProcessManager {
         // was actually launched on, even if the config changes later.
         self.running_port = Some(config.llama_server_port);
 
-        let llama_path = if config.llama_cpp_path.is_empty() {
-            "llama-server".to_string()
-        } else {
-            config.llama_cpp_path.clone()
-        };
+        let llama_path = runtime_tools::command_for_llama_server(&config.llama_cpp_path);
 
         let mut cmd = Command::new(&llama_path);
         cmd.arg("-m")
@@ -246,13 +243,13 @@ impl LlamaProcessManager {
 
         self.push_log(format!(
             "Starting llama.cpp: {} -m {}",
-            llama_path, model_path
+            llama_path.display(), model_path
         ));
-        tracing::info!(model = %model_path, binary = %llama_path, "Spawning llama.cpp server");
+        tracing::info!(model = %model_path, binary = %llama_path.display(), "Spawning llama.cpp server");
 
         // kill_on_drop ensures the child process is SIGKILL'd if the Child handle is
         // dropped (e.g., on panic or unexpected process exit), preventing llama.cpp from
-        // becoming an orphan that holds GPU/RAM after AI Studio exits.
+        // becoming an orphan that holds GPU/RAM after LlamaStudio exits.
         cmd.kill_on_drop(true);
 
         match cmd.spawn() {
@@ -535,11 +532,7 @@ pub async fn create_chat_stream(
         let body_text = response.text().await.unwrap_or_default();
         let err_msg = serde_json::from_str::<serde_json::Value>(&body_text)
             .ok()
-            .and_then(|v| {
-                v.get("error")
-                    .and_then(|e| e.as_str())
-                    .map(String::from)
-            })
+            .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(String::from))
             .unwrap_or_else(|| format!("llama.cpp returned status {status_code}"));
         tracing::error!(status = %status_code, body = %body_text, "llama.cpp completions error");
         return Err(AppError::UpstreamError(err_msg));

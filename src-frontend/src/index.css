@@ -8,17 +8,17 @@
   --color-primary: #c2553a;
   --color-primary-hover: #a8472f;
   --color-primary-light: #d47060;
-  --color-surface: #fafaf8;
-  --color-surface-dim: #f0f0eb;
-  --color-surface-hover: #e5e5de;
-  --color-border: #c4c4bc;
+  --color-surface: #fffde0;
+  --color-surface-dim: #f7f3cc;
+  --color-surface-hover: #efe9b9;
+  --color-border: #9f9579;
   --color-text: #181816;
   --color-text-secondary: #46463f;
   --color-text-muted: #82827a;
   --color-success: #2e6e44;
   --color-warning: #9a7200;
   --color-error: #b83232;
-  --color-user-bubble: #ede9e4;
+  --color-user-bubble: #e1d8bc;
   --color-assistant-bubble: transparent;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
@@ -36,18 +36,34 @@
   --color-assistant-bubble: transparent;
 }
 
+:root {
+  color-scheme: light;
+}
+
 html {
   font-family: var(--font-sans);
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
+  height: 100%;
 }
 
 body {
   margin: 0;
+  min-height: 100dvh;
   background-color: var(--color-surface);
   color: var(--color-text);
+  overflow: hidden;
+}
+
+body,
+#root {
+  height: 100%;
+}
+
+#root {
+  isolation: isolate;
 }
 
 /* hljs resets — our code block container owns the background */
@@ -123,11 +139,125 @@ button:active:not(:disabled) {
   transform: scale(0.97);
 }
 
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 button, a, input, select, textarea {
   transition: all 0.12s ease;
 }
 
+.page-shell {
+  width: min(100%, 96rem);
+  margin-inline: auto;
+  padding: clamp(1rem, 2vw, 1.75rem);
+}
+
+.page-shell-narrow {
+  max-width: 74rem;
+}
+
+.ui-panel {
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 4px 4px 0 var(--color-border);
+}
+
+.ui-button,
+.ui-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 2px solid transparent;
+  font-weight: 600;
+  border-radius: 0;
+}
+
+.ui-button {
+  min-height: 2.5rem;
+  padding: 0.65rem 1rem;
+}
+
+.ui-button-secondary {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.ui-button-secondary:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ui-button-primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--color-primary) 32%, var(--color-border));
+}
+
+.ui-button-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.ui-button-danger {
+  border-color: var(--color-error);
+  background: var(--color-error);
+  color: #fff;
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--color-error) 35%, var(--color-border));
+}
+
+.ui-button-danger:hover {
+  background: color-mix(in srgb, var(--color-error) 88%, black);
+}
+
+.ui-icon-button {
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--color-text-muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.ui-icon-button:hover {
+  border-color: var(--color-border);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.ui-input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 0.75rem 1rem;
+  color: var(--color-text);
+  outline: none;
+  border-radius: 0;
+}
+
+.ui-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.ui-input:focus {
+  border-color: var(--color-primary);
+}
+
+.ui-input-soft {
+  background: var(--color-surface-dim);
+}
+
 /* ─── Chat Markdown ─────────────────────────────────────── */
+
+.chat-markdown {
+  overflow-wrap: anywhere;
+}
 
 .chat-markdown > :first-child { margin-top: 0; }
 .chat-markdown > :last-child { margin-bottom: 0; }
@@ -171,8 +301,28 @@ button, a, input, select, textarea {
   padding-left: 1.5rem;
 }
 
+.chat-markdown .md-list {
+  margin: 0.8rem 0;
+}
+
+.chat-markdown .md-list-unordered {
+  list-style: square;
+}
+
+.chat-markdown .md-list-ordered {
+  list-style: decimal;
+}
+
+.chat-markdown .md-list-item {
+  display: list-item;
+}
+
 .chat-markdown li + li { margin-top: 0.3rem; }
 .chat-markdown li > p { margin: 0; }
+
+.chat-markdown .md-paragraph {
+  margin: 0.8rem 0;
+}
 
 /* Brutalist blockquote — thick accent border, no background */
 .chat-markdown blockquote {
@@ -194,6 +344,7 @@ button, a, input, select, textarea {
   overflow-x: auto;
   margin: 1rem 0;
   border: 2px solid var(--color-border);
+  box-shadow: 3px 3px 0 var(--color-border);
 }
 
 .chat-markdown table {

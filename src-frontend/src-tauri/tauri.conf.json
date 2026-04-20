@@ -1,0 +1,65 @@
+{
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "LlamaStudio",
+    "version": "0.1.0",
+    "identifier": "local.llamastudio.desktop",
+    "build": {
+        "beforeDevCommand": "pnpm dev",
+        "beforeBuildCommand": "pnpm build",
+        "devUrl": "http://127.0.0.1:6767",
+        "frontendDist": "../dist"
+    },
+    "app": {
+        "windows": [],
+        "security": {
+            "capabilities": [
+                "main-capability"
+            ]
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": [
+            "appimage",
+            "deb",
+            "rpm",
+            "nsis",
+            "msi"
+        ],
+        "category": "Utility",
+        "shortDescription": "Local-first desktop app for llama.cpp",
+        "longDescription": "LlamaStudio is a local-first desktop app for llama.cpp with chat, model management, analytics, and setup guidance.",
+        "linux": {
+            "deb": {
+                "depends": [
+                    "libgtk-3-0",
+                    "libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37",
+                    "libayatana-appindicator3-1 | libappindicator3-1",
+                    "libxdo3",
+                    "libssl3 | libssl1.1"
+                ]
+            },
+            "rpm": {
+                "depends": [
+                    "webkit2gtk4.1",
+                    "gtk3",
+                    "libappindicator-gtk3",
+                    "xdotool",
+                    "openssl"
+                ]
+            }
+        },
+        "windows": {
+            "nsis": {
+                "displayLanguageSelector": true,
+                "installerIcon": "icons/app-icon.png"
+            },
+            "wix": {
+                "language": "en-US"
+            }
+        },
+        "icon": [
+            "icons/app-icon.png"
+        ]
+    }
+}

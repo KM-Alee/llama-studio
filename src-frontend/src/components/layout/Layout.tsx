@@ -19,25 +19,22 @@ export function Layout() {
   useKeyboardShortcuts()
 
   return (
-    <div className="flex h-screen overflow-hidden bg-surface text-text">
+    <div className="flex h-[100dvh] min-h-0 overflow-hidden bg-surface text-text">
       <Sidebar />
       <div
         className={cn(
           'flex min-w-0 flex-1 flex-col transition-all duration-200',
-          sidebarOpen ? 'ml-64' : 'ml-0',
+          sidebarOpen ? 'lg:ml-64' : 'ml-0',
         )}
       >
         <TopBar />
-        <main className="flex-1 overflow-auto">
+        <main className="min-h-0 flex-1 overflow-auto">
           <Outlet />
         </main>
         <StatusBar />
       </div>
       {commandPaletteOpen && (
-        <CommandPalette
-          open={commandPaletteOpen}
-          onClose={() => setCommandPaletteOpen(false)}
-        />
+        <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
       )}
     </div>
   )

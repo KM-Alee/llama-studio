@@ -36,8 +36,7 @@ export const useChatStore = create<ChatState>((set) => ({
   abortStreaming: null,
   setActiveConversation: (id) => set({ activeConversationId: id }),
   setMessages: (messages) => set({ messages }),
-  addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
+  addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
   setStreaming: (isStreaming) => set({ isStreaming }),
   appendStreamContent: (content) =>
     set((state) => ({ streamingContent: state.streamingContent + content })),

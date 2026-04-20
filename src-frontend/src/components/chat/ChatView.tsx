@@ -1,4 +1,12 @@
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent, type DragEvent, type ChangeEvent } from 'react'
+import {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  type KeyboardEvent,
+  type DragEvent,
+  type ChangeEvent,
+} from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -27,13 +35,22 @@ import {
   type MessageAttachment,
   type Preset,
 } from '@/lib/api'
-import { attachmentInputHint, buildMessageForModel, toMessageAttachment } from '@/lib/chatAttachments'
+import {
+  attachmentInputHint,
+  buildMessageForModel,
+  toMessageAttachment,
+} from '@/lib/chatAttachments'
 import { cn } from '@/lib/utils'
 import { useCustomTemplates } from '@/lib/customTemplates'
 import toast from 'react-hot-toast'
 import { MessageBubble } from './MessageBubble'
 import { PresetSelector } from './PresetSelector'
-import { ParameterPanel, DEFAULT_PARAMS, type InferenceParams } from './ParameterPanel'
+import {
+  ParameterPanel,
+  DEFAULT_PARAMS,
+  MAX_TOKENS_AUTO,
+  type InferenceParams,
+} from './ParameterPanel'
 import { SystemPromptEditor } from './SystemPromptEditor'
 import { LogViewer } from './LogViewer'
 
@@ -105,7 +122,11 @@ export function ChatView() {
   const profile = useAppStore((s) => s.profile)
   const { customTemplates } = useCustomTemplates()
 
-  const { data: conversationData, isLoading: conversationLoading, isError: conversationLoadFailed } = useQuery({
+  const {
+    data: conversationData,
+    isLoading: conversationLoading,
+    isError: conversationLoadFailed,
+  } = useQuery({
     queryKey: ['conversation', conversationId],
     queryFn: () => getConversation(conversationId!),
     enabled: Boolean(conversationId),
@@ -148,9 +169,10 @@ export function ChatView() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
 
-  const tokensPerSecond = streamStartTime && streamTokenCount > 0
-    ? (streamTokenCount / ((Date.now() - streamStartTime) / 1000)).toFixed(1)
-    : null
+  const tokensPerSecond =
+    streamStartTime && streamTokenCount > 0
+      ? (streamTokenCount / ((Date.now() - streamStartTime) / 1000)).toFixed(1)
+      : null
 
   const attachAbortController = (controller: AbortController | null) => {
     abortRef.current = controller
@@ -181,19 +203,26 @@ export function ChatView() {
       }))
 
   const buildChatOptions = () => {
-    const presetParameters = selectedPreset ? normalizePresetParameters(selectedPreset.parameters) : {}
-    const options: Record<string, unknown> = profile === 'advanced'
-      ? {
-          ...presetParameters,
-          ...inferenceParams,
-        }
-      : {
-          ...presetParameters,
-        }
+    const presetParameters = selectedPreset
+      ? normalizePresetParameters(selectedPreset.parameters)
+      : {}
+    const options: Record<string, unknown> =
+      profile === 'advanced'
+        ? {
+            ...presetParameters,
+            ...inferenceParams,
+          }
+        : {
+            ...presetParameters,
+          }
 
     const prompt = systemPrompt || selectedPreset?.system_prompt || undefined
     if (prompt) {
       options.system_prompt = prompt
+    }
+
+    if (options.max_tokens === MAX_TOKENS_AUTO) {
+      delete options.max_tokens
     }
 
     return Object.keys(options).length > 0 ? options : undefined
@@ -263,8 +292,13 @@ export function ChatView() {
     try {
       if (!conversation) {
         const title = trimmed
-          ? (trimmed.length > 50 ? `${trimmed.slice(0, 50)}...` : trimmed)
-          : `Files: ${currentAttachments.map((attachment) => attachment.name).join(', ').slice(0, 50)}`
+          ? trimmed.length > 50
+            ? `${trimmed.slice(0, 50)}...`
+            : trimmed
+          : `Files: ${currentAttachments
+              .map((attachment) => attachment.name)
+              .join(', ')
+              .slice(0, 50)}`
 
         const createdConversation = await createConversation({
           title,
@@ -367,7 +401,10 @@ export function ChatView() {
   }
 
   const isServerReady = serverStatus === 'running'
-  const estimatedTokens = Math.ceil((input.length + attachments.reduce((sum, attachment) => sum + attachment.content.length, 0)) / 4)
+  const estimatedTokens = Math.ceil(
+    (input.length + attachments.reduce((sum, attachment) => sum + attachment.content.length, 0)) /
+      4,
+  )
 
   const autoResize = useCallback(() => {
     const element = inputRef.current
@@ -413,16 +450,19 @@ export function ChatView() {
     }
   }
 
-  const showConversationLoading = Boolean(conversationId) && conversationLoading && messages.length === 0
+  const showConversationLoading =
+    Boolean(conversationId) && conversationLoading && messages.length === 0
 
   return (
-    <div className="flex h-full">
+    <div className="relative flex h-full min-h-0">
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto">
           {showConversationLoading ? (
             <div className="flex h-full items-center justify-center">
-              <span className="font-mono text-xs uppercase tracking-widest text-text-muted">Loading…</span>
+              <span className="font-mono text-xs uppercase tracking-widest text-text-muted">
+                Loading…
+              </span>
             </div>
           ) : conversationLoadFailed ? (
             <div className="flex h-full items-center justify-center px-6">
@@ -441,7 +481,7 @@ export function ChatView() {
             </div>
           ) : messages.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-6 px-6">
-              <div className="flex h-14 w-14 items-center justify-center border-2 border-border bg-surface-dim rounded-full overflow-hidden">
+              <div className="flex h-14 w-14 items-center justify-center border-2 border-border bg-surface-dim overflow-hidden">
                 <img src="/ai-face.jpeg" alt="AI avatar" className="h-full w-full object-cover" />
               </div>
               <div className="max-w-sm text-center">
@@ -456,7 +496,7 @@ export function ChatView() {
               </div>
             </div>
           ) : (
-            <div className="mx-auto max-w-3xl space-y-7 px-6 py-8">
+            <div className="mx-auto w-full max-w-[56rem] space-y-7 px-4 py-6 sm:px-6 sm:py-8">
               {messages.map((message) => (
                 <MessageBubble key={message.id} message={message} />
               ))}
@@ -480,13 +520,15 @@ export function ChatView() {
         {isStreaming && tokensPerSecond && (
           <div className="flex items-center justify-center gap-2 py-1 border-t border-border bg-surface-dim">
             <Gauge className="w-3 h-3 text-text-muted" />
-            <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted">{tokensPerSecond} tok/s</span>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted">
+              {tokensPerSecond} tok/s
+            </span>
           </div>
         )}
 
         {/* Input area */}
-        <div className="border-t-2 border-border bg-surface px-4 pb-5 pt-4">
-          <div className="mx-auto max-w-3xl">
+        <div className="border-t border-border bg-surface px-3 pb-4 pt-3 sm:px-4 sm:pb-5 sm:pt-4">
+          <div className="mx-auto w-full max-w-[56rem]">
             <div
               onDragOver={(event) => {
                 event.preventDefault()
@@ -512,18 +554,24 @@ export function ChatView() {
               />
 
               {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 border-b border-border px-3 pt-2 pb-2">
+                  <div className="flex flex-wrap gap-1.5 border-b border-border px-3 pb-2 pt-2">
                   {attachments.map((attachment) => (
                     <div
                       key={attachment.id}
-                      className="flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1 font-mono text-xs"
+                        className="flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1 font-mono text-xs"
                     >
                       <span className="max-w-[180px] truncate text-text">{attachment.name}</span>
-                      <span className="text-text-muted">{Math.ceil(attachment.size_bytes / 1024)}K</span>
+                      <span className="text-text-muted">
+                        {Math.ceil(attachment.size_bytes / 1024)}K
+                      </span>
                       <button
                         type="button"
-                        onClick={() => setAttachments((current) => current.filter((item) => item.id !== attachment.id))}
-                        className="text-text-muted transition-colors hover:text-error"
+                        onClick={() =>
+                          setAttachments((current) =>
+                            current.filter((item) => item.id !== attachment.id),
+                          )
+                        }
+                        className="ui-icon-button h-6 w-6 text-text-muted hover:text-error"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -532,7 +580,7 @@ export function ChatView() {
                 </div>
               )}
 
-              <div className="flex items-end gap-2 px-3 py-2.5">
+              <div className="flex items-end gap-2 px-3 py-2.5 sm:px-4 sm:py-3">
                 <PresetSelector selectedPresetId={selectedPresetId} onSelect={handlePresetSelect} />
                 <textarea
                   ref={inputRef}
@@ -542,35 +590,39 @@ export function ChatView() {
                   placeholder={isServerReady ? 'Message…' : 'Load a model to start chatting…'}
                   disabled={!isServerReady}
                   rows={1}
-                  className="max-h-[200px] min-h-[34px] flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed text-text outline-none placeholder-text-muted disabled:opacity-40"
+                  className="max-h-[200px] min-h-[38px] flex-1 resize-none bg-transparent py-1.5 text-sm leading-relaxed text-text outline-none placeholder-text-muted disabled:opacity-40"
                 />
-                <div className="flex shrink-0 items-center gap-0.5">
+                <div className="flex shrink-0 items-center gap-1">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={!isServerReady || isStreaming}
-                    className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-30"
+                    className="ui-icon-button disabled:opacity-30"
                     title={attachmentInputHint()}
                   >
                     <Paperclip className="w-4 h-4" />
                   </button>
                   {messages.length >= 2 && !isStreaming && isServerReady && (
                     <button
+                      type="button"
                       onClick={() => void handleRegenerate()}
-                      className="p-2 text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+                      className="ui-icon-button"
                       title="Regenerate last response"
                     >
                       <RotateCcw className="w-4 h-4" />
                     </button>
                   )}
                   <button
+                    type="button"
                     onClick={isStreaming ? cancelStreaming : () => void handleSend()}
-                    disabled={!isServerReady || (!input.trim() && attachments.length === 0 && !isStreaming)}
+                    disabled={
+                      !isServerReady || (!input.trim() && attachments.length === 0 && !isStreaming)
+                    }
                     className={cn(
-                      'shrink-0 p-2 transition-colors',
+                      'ui-icon-button h-10 w-10 shrink-0 border text-white transition-colors',
                       isStreaming
-                        ? 'bg-error text-white hover:bg-error/80'
-                        : 'bg-primary text-white hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-20',
+                        ? 'border-error bg-error hover:bg-error/80'
+                        : 'border-primary bg-primary hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-20',
                     )}
                   >
                     {isStreaming ? <Square className="w-4 h-4" /> : <ArrowUp className="w-4 h-4" />}
@@ -593,9 +645,10 @@ export function ChatView() {
                 </span>
                 <div className="flex items-center gap-0.5">
                   <button
+                    type="button"
                     onClick={() => setSidePanel(sidePanel === 'params' ? null : 'params')}
                     className={cn(
-                      'p-1.5 transition-colors hover:bg-surface-hover hover:text-text',
+                      'ui-icon-button h-8 w-8',
                       sidePanel === 'params' ? 'bg-primary/10 text-primary' : 'text-text-muted',
                     )}
                     title="Parameters"
@@ -603,19 +656,25 @@ export function ChatView() {
                     <SlidersHorizontal className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => setSidePanel(sidePanel === 'system-prompt' ? null : 'system-prompt')}
+                    type="button"
+                    onClick={() =>
+                      setSidePanel(sidePanel === 'system-prompt' ? null : 'system-prompt')
+                    }
                     className={cn(
-                      'p-1.5 transition-colors hover:bg-surface-hover hover:text-text',
-                      sidePanel === 'system-prompt' ? 'bg-primary/10 text-primary' : 'text-text-muted',
+                      'ui-icon-button h-8 w-8',
+                      sidePanel === 'system-prompt'
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-text-muted',
                     )}
                     title="System Prompt"
                   >
                     <FileText className="w-3.5 h-3.5" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => setSidePanel(sidePanel === 'logs' ? null : 'logs')}
                     className={cn(
-                      'p-1.5 transition-colors hover:bg-surface-hover hover:text-text',
+                      'ui-icon-button h-8 w-8',
                       sidePanel === 'logs' ? 'bg-primary/10 text-primary' : 'text-text-muted',
                     )}
                     title="Logs"
@@ -629,19 +688,26 @@ export function ChatView() {
         </div>
       </div>
 
-      {profile === 'advanced' && sidePanel === 'params' && (
-        <ParameterPanel params={inferenceParams} onChange={setInferenceParams} onClose={() => setSidePanel(null)} />
-      )}
-      {profile === 'advanced' && sidePanel === 'system-prompt' && (
-        <SystemPromptEditor
-          value={systemPrompt}
-          onChange={setSystemPrompt}
-          onClose={() => setSidePanel(null)}
-          onTemplateCreated={(template) => setSelectedPresetId(template.id)}
-        />
-      )}
-      {profile === 'advanced' && sidePanel === 'logs' && (
-        <LogViewer onClose={() => setSidePanel(null)} />
+      {profile === 'advanced' && sidePanel !== null && (
+        <div className="absolute inset-y-0 right-0 z-20 max-w-full xl:static xl:shrink-0">
+          {sidePanel === 'params' && (
+            <ParameterPanel
+              params={inferenceParams}
+              onChange={setInferenceParams}
+              onClose={() => setSidePanel(null)}
+            />
+          )}
+          {sidePanel === 'system-prompt' && (
+            <SystemPromptEditor
+              value={systemPrompt}
+              onChange={setSystemPrompt}
+              onClose={() => setSidePanel(null)}
+              selectedTemplateId={selectedPresetId}
+              onTemplateSelected={setSelectedPresetId}
+            />
+          )}
+          {sidePanel === 'logs' && <LogViewer onClose={() => setSidePanel(null)} />}
+        </div>
       )}
     </div>
   )

@@ -5,6 +5,9 @@ use std::sync::Arc;
 
 use crate::db::Database;
 
+pub const DEFAULT_APP_PORT: u16 = 6868;
+pub const DEFAULT_LLAMA_SERVER_PORT: u16 = 6970;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub llama_cpp_path: String,
@@ -35,9 +38,9 @@ impl Default for AppConfig {
                 .map(|h| h.join("models").to_string_lossy().to_string())
                 .unwrap_or_default(),
             default_profile: "normal".to_string(),
-            theme: "system".to_string(),
-            llama_server_port: 8080,
-            app_port: 3000,
+            theme: "light".to_string(),
+            llama_server_port: DEFAULT_LLAMA_SERVER_PORT,
+            app_port: DEFAULT_APP_PORT,
             gpu_layers: -1,
             context_size: 4096,
             threads: 0, // 0 = auto-detect

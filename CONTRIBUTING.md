@@ -1,12 +1,18 @@
-# Contributing to AI Studio
+# Contributing to LlamaStudio
 
 ## Development setup
 
 1. Install Rust stable, Node.js 20+, and pnpm.
-2. Install frontend dependencies with `cd src-frontend && pnpm install`.
-3. Start the full app with `make dev`.
+2. Install frontend dependencies with `make install`.
+3. Start the browser workflow with `make dev` or the desktop workflow with `make dev-desktop`.
 
-The backend must remain bound to `127.0.0.1`. Do not introduce changes that expose AI Studio or `llama-server` to the network.
+The default development ports are:
+
+- Vite: `6767`
+- LlamaStudio backend: `6868`
+- llama.cpp server: `6970`
+
+The backend must remain bound to `127.0.0.1`. Do not introduce changes that expose LlamaStudio or `llama-server` to the network.
 
 ## Project conventions
 
@@ -20,9 +26,13 @@ The backend must remain bound to `127.0.0.1`. Do not introduce changes that expo
 Run the full local checks:
 
 ```bash
+make fmt
 make check
+make lint
 make test
 ```
+
+If you change packaging or release flow, also verify `make release` and `make release-desktop`.
 
 If your change affects behavior, add or update tests in either `src-backend/tests/` or `src-frontend/src/__tests__/`.
 

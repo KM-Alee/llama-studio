@@ -1,106 +1,104 @@
-# AI Studio
+# LlamaStudio
 
 <div align="center">
-  <img src="readmepic.png" alt="AI Studio Interface" width="100%" style="border-radius: 12px; margin-bottom: 20px;">
-  
+  <img src="readmepic.png" alt="LlamaStudio Interface" width="100%" style="margin-bottom: 20px;">
+
   <p align="center">
-    <strong>A high-performance, local-first web UI for llama.cpp.</strong>
+    <strong>A local-first desktop app for llama.cpp with a polished chat workflow.</strong>
     <br />
-    Built with Rust, React 19, and Tailwind CSS 4.
+    Built with Rust, React 19, and Tauri 2.
   </p>
 
   <p align="center">
     <a href="#features">Features</a> •
-    <a href="#quick-start">Quick Start</a> •
-    <a href="#tech-stack">Tech Stack</a> •
-    <a href="#configuration">Configuration</a> •
-    <a href="#contributing">Contributing</a>
+    <a href="#first-run">First Run</a> •
+    <a href="#development">Development</a> •
+    <a href="#release-builds">Release Builds</a>
   </p>
 </div>
 
 ---
 
-AI Studio is a local-first desktop-style web UI for [llama.cpp](https://github.com/ggerganov/llama.cpp). It focuses on running GGUF models locally with a clean chat workflow, model management, and advanced llama.cpp controls without any external dependencies.
+LlamaStudio is a local-first desktop app for [llama.cpp](https://github.com/ggerganov/llama.cpp). It bundles its own Rust backend, provides a desktop UI through Tauri, manages chat history and models locally, and guides first-time users through runtime setup.
 
-## 🚀 Features
+## Features
 
-- **🎭 Two User Profiles**: Switch between *Normal* for a clean experience and *Advanced* for deep control.
-- **💬 Beautiful Chat UI**: Full Markdown rendering, code highlighting, and smooth SSE streaming.
-- **📦 Model Management**: One-click scanning, importing, and loading of GGUF models.
-- **🎨 Preset System**: Curated prompts for creative writing, coding, Q&A, and more.
-- **⚡ Performance Dashboard**: Real-time tokens/sec, VRAM estimation, and context visualization.
-- **🔒 Private & Local**: Zero telemetry. No accounts. Everything stays on your machine.
-- **🛠️ Full Parameter Control**: Tweak temperature, top_p, top_k, grammar, and every llama.cpp flag.
+- Local chat UI with Markdown, code highlighting, tables, math, and streaming responses
+- Model scanning, import, analytics, and local GGUF management
+- Normal and Advanced profiles for clean defaults or deeper control
+- System prompt templates with create, edit, and delete flows
+- Built-in dependency status panel for `llama-server`, `llama-cli`, and optional Hugging Face CLI
+- Windows and Linux desktop packaging
 
-## 📊 Status
+## First Run
 
-- **Monorepo**: Rust Axum backend (`src-backend/`) & React + Vite frontend (`src-frontend/`).
-- **Engine**: Manages `llama-server` as a subprocess, bound to `127.0.0.1` for security.
-- **Stability**: CI validates backend (`cargo check`, `clippy`, `cargo test`) and frontend (type-check, lint, Vitest unit tests) on every push.
+LlamaStudio is designed so the desktop app bundles its own backend.
 
-## 🛠️ Tech Stack
+What users need:
 
-| Component | Technology |
-|:---|:---|
-| **Backend** | Rust + Axum |
-| **Frontend** | React 19 + TypeScript + Vite |
-| **Styling** | Tailwind CSS 4 |
-| **State** | Zustand + TanStack Query |
-| **Database** | SQLite (embedded) |
-| **LLM Engine** | llama.cpp |
+1. Install the LlamaStudio desktop build for their platform.
+2. Open `Settings` and check the `Runtime Dependencies` section.
+3. Install `llama-server` if it is missing.
+4. Point `Binary Path` to `llama-server` if it is not already on `PATH`.
+5. Set a models directory and import or scan GGUF models.
 
-## 📦 Prerequisites
+Notes:
 
-- **Rust** 1.70+
-- **Node.js** 20+ (with `pnpm`)
-- **llama.cpp**: Ensure `llama-server` is in your PATH or configured in settings.
+- Hugging Face browsing and downloads work in-app already.
+- Hugging Face CLI is optional.
+- `llama-cli` is optional but improves local model inspection.
 
-## ⚡ Quick Start
+## Runtime Defaults
+
+- Vite dev server: `6767`
+- LlamaStudio backend: `6868`
+- llama.cpp server: `6970`
+- Default theme: `light`
+
+## Development
 
 ```bash
-# 1. Clone the repository
-git clone <repo-url> ai-studio
-cd ai-studio
+# frontend
+cd src-frontend
+npm install
+npm run lint
+npm test
+npm run build
 
-# 2. Setup frontend
-cd src-frontend && pnpm install && cd ..
-
-# 3. Start development environment
-make dev
+# backend
+cd ../src-backend
+cargo test
 ```
 
-> **Note**: On first run, go to **Settings** to configure your `models_directory` and `llama_cpp_path`.
+## Release Builds
 
-## 📂 Project Structure
+Desktop release targets are configured for:
 
+- Windows: `NSIS`, `MSI`
+- Linux: `AppImage`, `deb`, `rpm`
+
+GitHub releases are built by `.github/workflows/release.yml`.
+
+## Repository Layout
+
+```text
+src-backend/          Rust Axum backend
+src-frontend/         React frontend + Tauri shell
+docs/                 Product and architecture docs
+.github/workflows/    CI and release automation
 ```
-ai-studio/
-├── src-backend/          # Rust Axum backend (logic, DB, process mgmt)
-├── src-frontend/         # React SPA (components, stores, hooks)
-├── docs/                 # Architecture, Specs, and Phase tracking
-└── .github/              # Shared development guidelines
+
+## Push Readiness
+
+Before pushing, validate:
+
+```bash
+cd src-frontend && npm run lint && npm test && npm run build
+cd ../src-backend && cargo test
 ```
 
-## ⚙️ Configuration
+For desktop packaging changes, also validate Tauri builds in CI or on target platforms.
 
-| Setting | Default | Description |
-|:---|:---|:---|
-| `llama_cpp_path` | `""` | Path to `llama-server` binary |
-| `models_directory` | `~/models` | Folder to scan for .gguf files |
-| `llama_server_port` | `8080` | Internal port for llama.cpp |
-| `gpu_layers` | `-1` | Number of layers to offload to GPU |
-
-## 🤝 Contributing
-
-We welcome contributions! Please ensure:
-1. Backend remains bound to `127.0.0.1`.
-2. All API interactions are centralized in `src-frontend/src/lib/api.ts`.
-3. You run `make check && make test` before opening a pull request.
-
-Check [ARCHITECTURE.md](docs/ARCHITECTURE.md) for a deep dive into the system design.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow expectations and [SECURITY.md](SECURITY.md) for vulnerability reporting guidance.
-
-## 📜 License
+## License
 
 MIT
-

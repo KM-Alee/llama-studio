@@ -2,15 +2,47 @@ import { useState, useCallback, useDeferredValue } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  Box, Scan, Trash2, Play, HardDrive, LayoutGrid, List, Search,
-  Download, X, FolderOpen, FileDown, ExternalLink,
-  Square, AlertCircle, ChevronDown, ChevronRight, Heart, Activity, Clock3, Cpu, Sparkles
+  Box,
+  Scan,
+  Trash2,
+  Play,
+  HardDrive,
+  LayoutGrid,
+  List,
+  Search,
+  Download,
+  X,
+  FolderOpen,
+  FileDown,
+  ExternalLink,
+  Square,
+  AlertCircle,
+  ChevronDown,
+  ChevronRight,
+  Heart,
+  Activity,
+  Clock3,
+  Cpu,
+  Sparkles,
 } from 'lucide-react'
 import {
-  getModels, scanModels, deleteModel, startServer, stopServer,
-  importModel, getDownloads, cancelDownload, searchHuggingFace,
-  getHuggingFaceFiles, getModelAnalytics, getModelInspection, startDownload,
-  type Model, type DownloadInfo, type HuggingFaceModel, type HuggingFaceFile,
+  getModels,
+  scanModels,
+  deleteModel,
+  startServer,
+  stopServer,
+  importModel,
+  getDownloads,
+  cancelDownload,
+  searchHuggingFace,
+  getHuggingFaceFiles,
+  getModelAnalytics,
+  getModelInspection,
+  startDownload,
+  type Model,
+  type DownloadInfo,
+  type HuggingFaceModel,
+  type HuggingFaceFile,
 } from '@/lib/api'
 import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
@@ -108,7 +140,9 @@ export function ModelsPage() {
 
   const models = data?.models ?? []
   const downloads = downloadsData?.downloads ?? []
-  const activeDownloads = downloads.filter((d: DownloadInfo) => d.status === 'downloading' || d.status === 'queued')
+  const activeDownloads = downloads.filter(
+    (d: DownloadInfo) => d.status === 'downloading' || d.status === 'queued',
+  )
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -140,12 +174,19 @@ export function ModelsPage() {
           <div>
             <h1 className="text-xl font-bold text-text">Models</h1>
             <p className="text-sm text-text-muted mt-1">
-              {models.length} available{activeDownloads.length > 0 && ` · ${activeDownloads.length} downloading`}
+              {models.length} available
+              {activeDownloads.length > 0 && ` · ${activeDownloads.length} downloading`}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate(models[0] ? `/models/analytics/${selectedModel?.id ?? models[0].id}` : '/models/analytics')}
+              onClick={() =>
+                navigate(
+                  models[0]
+                    ? `/models/analytics/${selectedModel?.id ?? models[0].id}`
+                    : '/models/analytics',
+                )
+              }
               disabled={models.length === 0}
               className="flex items-center gap-2 px-4 py-2  border border-border text-text-secondary hover:bg-surface-hover text-sm font-medium transition-colors disabled:opacity-40"
             >
@@ -190,12 +231,14 @@ export function ModelsPage() {
                   'px-4 py-2.5 text-sm font-medium transition-colors capitalize border-b-2 -mb-px',
                   activeTab === tab
                     ? 'border-primary text-text'
-                    : 'border-transparent text-text-muted hover:text-text-secondary'
+                    : 'border-transparent text-text-muted hover:text-text-secondary',
                 )}
               >
                 {tab === 'downloads' && activeDownloads.length > 0
                   ? `Downloads (${activeDownloads.length})`
-                  : tab === 'browse' ? 'HuggingFace' : tab}
+                  : tab === 'browse'
+                    ? 'HuggingFace'
+                    : tab}
               </button>
             ))}
           </div>
@@ -205,7 +248,9 @@ export function ModelsPage() {
                 onClick={() => setViewMode('list')}
                 className={cn(
                   'p-1.5  transition-colors',
-                  viewMode === 'list' ? 'text-text bg-surface-hover' : 'text-text-muted hover:text-text-secondary'
+                  viewMode === 'list'
+                    ? 'text-text bg-surface-hover'
+                    : 'text-text-muted hover:text-text-secondary',
                 )}
               >
                 <List className="w-4 h-4" />
@@ -214,7 +259,9 @@ export function ModelsPage() {
                 onClick={() => setViewMode('grid')}
                 className={cn(
                   'p-1.5  transition-colors',
-                  viewMode === 'grid' ? 'text-text bg-surface-hover' : 'text-text-muted hover:text-text-secondary'
+                  viewMode === 'grid'
+                    ? 'text-text bg-surface-hover'
+                    : 'text-text-muted hover:text-text-secondary',
                 )}
               >
                 <LayoutGrid className="w-4 h-4" />
@@ -249,7 +296,8 @@ export function ModelsPage() {
                   <Box className="w-12 h-12 text-text-muted/20 mx-auto mb-3" />
                   <h2 className="text-base font-semibold text-text mb-1.5">No models found</h2>
                   <p className="text-sm text-text-muted max-w-sm mx-auto">
-                    Place .gguf files in your models directory, then click Scan. Or browse HuggingFace to download models.
+                    Place .gguf files in your models directory, then click Scan. Or browse
+                    HuggingFace to download models.
                   </p>
                 </div>
               ) : viewMode === 'grid' ? (
@@ -261,7 +309,10 @@ export function ModelsPage() {
                       isActive={model.id === activeModelId}
                       serverStatus={serverStatus}
                       onSelect={() => setSelectedModel(model)}
-                      onLoad={() => { setActiveModel(model.id); startMutation.mutate(model.id) }}
+                      onLoad={() => {
+                        setActiveModel(model.id)
+                        startMutation.mutate(model.id)
+                      }}
                       onDelete={() => setDeleteModelTarget(model.id)}
                     />
                   ))}
@@ -275,7 +326,10 @@ export function ModelsPage() {
                       isActive={model.id === activeModelId}
                       serverStatus={serverStatus}
                       onSelect={() => setSelectedModel(model)}
-                      onLoad={() => { setActiveModel(model.id); startMutation.mutate(model.id) }}
+                      onLoad={() => {
+                        setActiveModel(model.id)
+                        startMutation.mutate(model.id)
+                      }}
                       onDelete={() => setDeleteModelTarget(model.id)}
                     />
                   ))}
@@ -308,21 +362,26 @@ export function ModelsPage() {
                       key={model.id}
                       model={model}
                       isExpanded={expandedHfModel === model.id}
-                      onToggle={() => setExpandedHfModel(expandedHfModel === model.id ? null : model.id)}
+                      onToggle={() =>
+                        setExpandedHfModel(expandedHfModel === model.id ? null : model.id)
+                      }
                     />
                   ))}
                 </div>
               ) : deferredHfQuery.length >= 2 && !hfSearching ? (
                 <div className="text-center py-16">
                   <Search className="w-10 h-10 text-text-muted/20 mx-auto mb-3" />
-                  <p className="text-sm text-text-muted">No GGUF models found for &quot;{deferredHfQuery}&quot;</p>
+                  <p className="text-sm text-text-muted">
+                    No GGUF models found for &quot;{deferredHfQuery}&quot;
+                  </p>
                 </div>
               ) : (
                 <div className="text-center py-16">
                   <Download className="w-10 h-10 text-text-muted/20 mx-auto mb-3" />
                   <h3 className="text-base font-semibold text-text mb-1.5">Browse HuggingFace</h3>
                   <p className="text-sm text-text-muted max-w-sm mx-auto">
-                    Search for GGUF models and inspect real file sizes before downloading. Try &quot;llama&quot;, &quot;mistral&quot;, or &quot;qwen&quot;.
+                    Search for GGUF models and inspect real file sizes before downloading. Try
+                    &quot;llama&quot;, &quot;mistral&quot;, or &quot;qwen&quot;.
                   </p>
                 </div>
               )}
@@ -336,7 +395,9 @@ export function ModelsPage() {
                 <div className="text-center py-16 text-text-muted text-sm">
                   <Download className="w-12 h-12 text-text-muted/20 mx-auto mb-3" />
                   <h3 className="text-base font-semibold text-text mb-1.5">No downloads</h3>
-                  <p className="text-sm text-text-muted">Browse HuggingFace to find and download models.</p>
+                  <p className="text-sm text-text-muted">
+                    Browse HuggingFace to find and download models.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -356,7 +417,10 @@ export function ModelsPage() {
           model={selectedModel}
           isActive={selectedModel.id === activeModelId}
           onClose={() => setSelectedModel(null)}
-          onLoad={() => { setActiveModel(selectedModel.id); startMutation.mutate(selectedModel.id) }}
+          onLoad={() => {
+            setActiveModel(selectedModel.id)
+            startMutation.mutate(selectedModel.id)
+          }}
           onOpenAnalytics={() => navigate(`/models/analytics/${selectedModel.id}`)}
           serverStatus={serverStatus}
         />
@@ -385,7 +449,7 @@ export function ModelsPage() {
           }
         }}
         title="Remove model"
-        description="This will remove the model from Llama Studio. The file will not be deleted from disk."
+        description="This will remove the model from LlamaStudio. The file will not be deleted from disk."
         confirmLabel="Remove"
         confirmVariant="danger"
       />
@@ -394,8 +458,14 @@ export function ModelsPage() {
 }
 
 // HuggingFace model card with expandable file listing
-function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
-  model: HuggingFaceModel; isExpanded: boolean; onToggle: () => void
+function HuggingFaceModelCard({
+  model,
+  isExpanded,
+  onToggle,
+}: {
+  model: HuggingFaceModel
+  isExpanded: boolean
+  onToggle: () => void
 }) {
   const queryClient = useQueryClient()
 
@@ -409,7 +479,9 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
     const url = `https://huggingface.co/${model.id}/resolve/main/${file.filename}`
     try {
       await startDownload(url, file.filename)
-      toast.success(`Downloading ${file.filename}${file.size > 0 ? ` · ${formatBytes(file.size)}` : ''}`)
+      toast.success(
+        `Downloading ${file.filename}${file.size > 0 ? ` · ${formatBytes(file.size)}` : ''}`,
+      )
       queryClient.invalidateQueries({ queryKey: ['downloads'] })
     } catch {
       toast.error('Failed to start download')
@@ -419,7 +491,9 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
   const files = filesData?.files ?? []
   const ggufCount = filesData?.gguf_count ?? files.length
   const totalSize = filesData?.total_size_bytes ?? 0
-  const visibleTags = model.tags.filter((tag) => !['gguf', 'text-generation', 'conversational'].includes(tag)).slice(0, 4)
+  const visibleTags = model.tags
+    .filter((tag) => !['gguf', 'text-generation', 'conversational'].includes(tag))
+    .slice(0, 4)
 
   return (
     <div className=" border border-border bg-surface-dim overflow-hidden transition-colors hover:border-border/80">
@@ -469,10 +543,11 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
             <ExternalLink className="w-3.5 h-3.5" />
             View
           </a>
-          {isExpanded
-            ? <ChevronDown className="w-4 h-4 text-text-muted" />
-            : <ChevronRight className="w-4 h-4 text-text-muted" />
-          }
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-text-muted" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-text-muted" />
+          )}
         </div>
       </div>
 
@@ -535,25 +610,34 @@ function HuggingFaceModelCard({ model, isExpanded, onToggle }: {
   )
 }
 
-function ModelCard({ model, isActive, serverStatus, onSelect, onLoad, onDelete }: {
-  model: ModelDetail; isActive: boolean; serverStatus: string
-  onSelect: () => void; onLoad: () => void; onDelete: () => void
+function ModelCard({
+  model,
+  isActive,
+  serverStatus,
+  onSelect,
+  onLoad,
+  onDelete,
+}: {
+  model: Model
+  isActive: boolean
+  serverStatus: string
+  onSelect: () => void
+  onLoad: () => void
+  onDelete: () => void
 }) {
   return (
     <div
       onClick={onSelect}
       className={cn(
         'p-4  border cursor-pointer transition-colors',
-        isActive ? 'border-success/50 bg-success/5' : 'border-border hover:bg-surface-hover'
+        isActive ? 'border-success/50 bg-success/5' : 'border-border hover:bg-surface-hover',
       )}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="w-9 h-9  bg-surface-dim flex items-center justify-center">
           <HardDrive className="w-4 h-4 text-text-muted" />
         </div>
-        {isActive && (
-          <span className="text-xs font-semibold text-success">Active</span>
-        )}
+        {isActive && <span className="text-xs font-semibold text-success">Active</span>}
       </div>
       <h3 className="font-semibold text-text text-sm truncate mb-1.5">{model.name}</h3>
       <div className="flex items-center gap-2 text-xs text-text-muted mb-4">
@@ -567,7 +651,10 @@ function ModelCard({ model, isActive, serverStatus, onSelect, onLoad, onDelete }
       </div>
       <div className="flex gap-2">
         <button
-          onClick={(e) => { e.stopPropagation(); onLoad() }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onLoad()
+          }}
           disabled={serverStatus !== 'stopped'}
           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2  bg-success/10 text-success hover:bg-success/20 text-sm font-medium transition-colors disabled:opacity-30"
         >
@@ -575,7 +662,10 @@ function ModelCard({ model, isActive, serverStatus, onSelect, onLoad, onDelete }
           Load
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
           className="p-2  text-text-muted hover:text-error hover:bg-error/10 transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -585,16 +675,27 @@ function ModelCard({ model, isActive, serverStatus, onSelect, onLoad, onDelete }
   )
 }
 
-function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }: {
-  model: ModelDetail; isActive: boolean; serverStatus: string
-  onSelect: () => void; onLoad: () => void; onDelete: () => void
+function ModelRow({
+  model,
+  isActive,
+  serverStatus,
+  onSelect,
+  onLoad,
+  onDelete,
+}: {
+  model: Model
+  isActive: boolean
+  serverStatus: string
+  onSelect: () => void
+  onLoad: () => void
+  onDelete: () => void
 }) {
   return (
     <div
       onClick={onSelect}
       className={cn(
         'flex items-center gap-3 p-3.5  border cursor-pointer transition-colors group',
-        isActive ? 'border-success/50 bg-success/5' : 'border-border hover:bg-surface-hover'
+        isActive ? 'border-success/50 bg-success/5' : 'border-border hover:bg-surface-hover',
       )}
     >
       <div className="w-9 h-9  bg-surface-dim flex items-center justify-center shrink-0">
@@ -615,11 +716,12 @@ function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }:
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {isActive && (
-          <span className="text-xs font-semibold text-success mr-1">Active</span>
-        )}
+        {isActive && <span className="text-xs font-semibold text-success mr-1">Active</span>}
         <button
-          onClick={(e) => { e.stopPropagation(); onLoad() }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onLoad()
+          }}
           disabled={serverStatus !== 'stopped'}
           className="flex items-center gap-1.5 px-3 py-1.5  bg-success/10 text-success hover:bg-success/20 text-sm font-medium transition-colors disabled:opacity-30"
         >
@@ -627,7 +729,10 @@ function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }:
           Load
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onDelete()
+          }}
           className="p-1.5  text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -637,9 +742,20 @@ function ModelRow({ model, isActive, serverStatus, onSelect, onLoad, onDelete }:
   )
 }
 
-function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, serverStatus }: {
-  model: ModelDetail; isActive: boolean
-  onClose: () => void; onLoad: () => void; onOpenAnalytics: () => void; serverStatus: string
+function ModelDetailPanel({
+  model,
+  isActive,
+  onClose,
+  onLoad,
+  onOpenAnalytics,
+  serverStatus,
+}: {
+  model: Model
+  isActive: boolean
+  onClose: () => void
+  onLoad: () => void
+  onOpenAnalytics: () => void
+  serverStatus: string
 }) {
   const { data: inspectionData, isLoading: inspectionLoading } = useQuery({
     queryKey: ['model-inspection', model.id],
@@ -666,32 +782,72 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
       <div className="space-y-4">
         <DetailField label="Name" value={resolvedModel.name} />
         <div>
-          <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">Path</label>
-          <p className="text-xs text-text-secondary mt-1.5 break-all font-mono leading-relaxed bg-surface-dim  p-2">{resolvedModel.path}</p>
+          <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+            Path
+          </label>
+          <p className="text-xs text-text-secondary mt-1.5 break-all font-mono leading-relaxed bg-surface-dim  p-2">
+            {resolvedModel.path}
+          </p>
         </div>
         <DetailField label="Size" value={formatBytes(resolvedModel.size_bytes)} />
-        <DetailField label="VRAM" value={estimateVram(resolvedModel.size_bytes, resolvedModel.quantization ?? undefined)} />
-        {resolvedModel.quantization && <DetailField label="Quantization" value={resolvedModel.quantization} />}
-        {resolvedModel.architecture && <DetailField label="Architecture" value={resolvedModel.architecture} />}
-        {resolvedModel.parameters && <DetailField label="Parameters" value={resolvedModel.parameters} />}
-        {resolvedModel.context_length && (
-          <DetailField label="Context" value={`${resolvedModel.context_length.toLocaleString()} tokens`} />
+        <DetailField
+          label="VRAM"
+          value={estimateVram(resolvedModel.size_bytes, resolvedModel.quantization ?? undefined)}
+        />
+        {resolvedModel.quantization && (
+          <DetailField label="Quantization" value={resolvedModel.quantization} />
         )}
-        {resolvedModel.last_used && <DetailField label="Last Used" value={formatDate(resolvedModel.last_used)} />}
+        {resolvedModel.architecture && (
+          <DetailField label="Architecture" value={resolvedModel.architecture} />
+        )}
+        {resolvedModel.parameters && (
+          <DetailField label="Parameters" value={resolvedModel.parameters} />
+        )}
+        {resolvedModel.context_length && (
+          <DetailField
+            label="Context"
+            value={`${resolvedModel.context_length.toLocaleString()} tokens`}
+          />
+        )}
+        {resolvedModel.last_used && (
+          <DetailField label="Last Used" value={formatDate(resolvedModel.last_used)} />
+        )}
         <DetailField label="Added" value={new Date(resolvedModel.added_at).toLocaleDateString()} />
 
         <div className=" border border-border bg-surface-dim p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">llama.cpp Inspection</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
+              llama.cpp Inspection
+            </h3>
             {inspectionLoading && <span className="text-[11px] text-text-muted">Inspecting…</span>}
           </div>
           {inspection ? (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <InfoPill icon={<Sparkles className="h-3.5 w-3.5" />} label="Format" value={inspection.file_format ?? 'Unknown'} />
-                <InfoPill icon={<Cpu className="h-3.5 w-3.5" />} label="Type" value={inspection.file_type ?? 'Unknown'} />
-                <InfoPill icon={<Cpu className="h-3.5 w-3.5" />} label="Layers" value={inspection.n_layer != null ? String(inspection.n_layer) : 'Unknown'} />
-                <InfoPill icon={<Clock3 className="h-3.5 w-3.5" />} label="Vocab" value={inspection.vocab_size != null ? inspection.vocab_size.toLocaleString() : 'Unknown'} />
+                <InfoPill
+                  icon={<Sparkles className="h-3.5 w-3.5" />}
+                  label="Format"
+                  value={inspection.file_format ?? 'Unknown'}
+                />
+                <InfoPill
+                  icon={<Cpu className="h-3.5 w-3.5" />}
+                  label="Type"
+                  value={inspection.file_type ?? 'Unknown'}
+                />
+                <InfoPill
+                  icon={<Cpu className="h-3.5 w-3.5" />}
+                  label="Layers"
+                  value={inspection.n_layer != null ? String(inspection.n_layer) : 'Unknown'}
+                />
+                <InfoPill
+                  icon={<Clock3 className="h-3.5 w-3.5" />}
+                  label="Vocab"
+                  value={
+                    inspection.vocab_size != null
+                      ? inspection.vocab_size.toLocaleString()
+                      : 'Unknown'
+                  }
+                />
               </div>
               <div className=" bg-surface px-3 py-2 text-[11px] text-text-muted">
                 <div className="font-semibold text-text-secondary">Command</div>
@@ -702,18 +858,42 @@ function ModelDetailPanel({ model, isActive, onClose, onLoad, onOpenAnalytics, s
               )}
             </div>
           ) : (
-            <p className="text-xs text-text-muted">Run-time metadata will appear here after inspection completes.</p>
+            <p className="text-xs text-text-muted">
+              Run-time metadata will appear here after inspection completes.
+            </p>
           )}
         </div>
 
         {analytics && (
           <div className=" border border-border bg-surface-dim p-4">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">Usage Snapshot</h3>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
+              Usage Snapshot
+            </h3>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <InfoPill icon={<Activity className="h-3.5 w-3.5" />} label="Chats" value={String(analytics.conversation_count)} />
-              <InfoPill icon={<Clock3 className="h-3.5 w-3.5" />} label="Speed" value={analytics.tokens_per_second != null ? `${analytics.tokens_per_second.toFixed(1)} tok/s` : 'No data'} />
-              <InfoPill icon={<Sparkles className="h-3.5 w-3.5" />} label="Tokens" value={analytics.total_tokens.toLocaleString()} />
-              <InfoPill icon={<Cpu className="h-3.5 w-3.5" />} label="Responses" value={String(analytics.assistant_message_count)} />
+              <InfoPill
+                icon={<Activity className="h-3.5 w-3.5" />}
+                label="Chats"
+                value={String(analytics.conversation_count)}
+              />
+              <InfoPill
+                icon={<Clock3 className="h-3.5 w-3.5" />}
+                label="Speed"
+                value={
+                  analytics.tokens_per_second != null
+                    ? `${analytics.tokens_per_second.toFixed(1)} tok/s`
+                    : 'No data'
+                }
+              />
+              <InfoPill
+                icon={<Sparkles className="h-3.5 w-3.5" />}
+                label="Tokens"
+                value={analytics.total_tokens.toLocaleString()}
+              />
+              <InfoPill
+                icon={<Cpu className="h-3.5 w-3.5" />}
+                label="Responses"
+                value={String(analytics.assistant_message_count)}
+              />
             </div>
           </div>
         )}
@@ -755,7 +935,9 @@ function InfoPill({ icon, label, value }: { icon: React.ReactNode; label: string
 function DetailField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">{label}</label>
+      <label className="text-xs font-semibold text-text-muted uppercase tracking-wider">
+        {label}
+      </label>
       <p className="text-sm text-text mt-1 break-words">{value}</p>
     </div>
   )
@@ -763,16 +945,16 @@ function DetailField({ label, value }: { label: string; value: string }) {
 
 function DownloadRow({ download }: { download: DownloadInfo }) {
   const totalBytes = download.total_bytes ?? 0
-  const progress = totalBytes > 0
-    ? Math.round((download.downloaded_bytes / totalBytes) * 100)
-    : 0
+  const progress = totalBytes > 0 ? Math.round((download.downloaded_bytes / totalBytes) * 100) : 0
 
   return (
     <div className="flex items-center gap-3 p-4  border border-border">
       <div className="w-10 h-10  bg-surface-dim flex items-center justify-center shrink-0">
-        {download.status === 'failed'
-          ? <AlertCircle className="w-5 h-5 text-error" />
-          : <Download className="w-5 h-5 text-text-muted" />}
+        {download.status === 'failed' ? (
+          <AlertCircle className="w-5 h-5 text-error" />
+        ) : (
+          <Download className="w-5 h-5 text-text-muted" />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-text truncate">{download.filename}</div>
@@ -780,11 +962,17 @@ function DownloadRow({ download }: { download: DownloadInfo }) {
           {download.status === 'downloading' && (
             <>
               <span className="font-semibold text-primary">{progress}%</span>
-              <span>{formatBytes(download.downloaded_bytes)} / {formatBytes(totalBytes)}</span>
+              <span>
+                {formatBytes(download.downloaded_bytes)} / {formatBytes(totalBytes)}
+              </span>
             </>
           )}
-          {download.status === 'complete' && <span className="text-success font-medium">Complete</span>}
-          {download.status === 'failed' && <span className="text-error">{download.error || 'Failed'}</span>}
+          {download.status === 'complete' && (
+            <span className="text-success font-medium">Complete</span>
+          )}
+          {download.status === 'failed' && (
+            <span className="text-error">{download.error || 'Failed'}</span>
+          )}
           {download.status === 'queued' && <span>Queued</span>}
           {download.status === 'cancelled' && <span>Cancelled</span>}
         </div>

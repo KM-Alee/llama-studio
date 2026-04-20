@@ -17,13 +17,13 @@ function NotFoundPage() {
         <div className="mt-5 flex items-center justify-center gap-2">
           <Link
             to="/chat"
-            className="border-2 border-primary bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-hover"
+            className="ui-button ui-button-primary"
           >
             Chat
           </Link>
           <Link
             to="/models"
-            className="border border-border px-4 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
+            className="ui-button ui-button-secondary"
           >
             Models
           </Link>
