@@ -491,8 +491,26 @@ export function ChatView() {
                 <p className="text-sm text-text-muted">
                   {isServerReady
                     ? 'Type a message below to start a conversation.'
-                    : 'Load a model from the Models page to begin.'}
+                    : 'Open Settings to check runtime dependencies, then load a model to begin.'}
                 </p>
+                {!isServerReady && (
+                  <div className="mt-4 flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/settings')}
+                      className="ui-button ui-button-primary"
+                    >
+                      Open Settings
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/models')}
+                      className="ui-button ui-button-secondary"
+                    >
+                      Browse Models
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ) : (

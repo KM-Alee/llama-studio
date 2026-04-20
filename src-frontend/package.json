@@ -16,6 +16,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@tauri-apps/plugin-process": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0",
     "@tanstack/react-query": "^5.95.2",
     "@types/react-syntax-highlighter": "^15.5.13",
     "copy-to-clipboard": "^3.3.3",

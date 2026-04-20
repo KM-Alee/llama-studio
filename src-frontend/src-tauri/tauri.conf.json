@@ -4,8 +4,8 @@
     "version": "0.1.0",
     "identifier": "local.llamastudio.desktop",
     "build": {
-        "beforeDevCommand": "pnpm dev",
-        "beforeBuildCommand": "pnpm build",
+        "beforeDevCommand": "npm run dev",
+        "beforeBuildCommand": "npm run build",
         "devUrl": "http://127.0.0.1:6767",
         "frontendDist": "../dist"
     },
@@ -26,6 +26,7 @@
             "nsis",
             "msi"
         ],
+        "createUpdaterArtifacts": true,
         "category": "Utility",
         "shortDescription": "Local-first desktop app for llama.cpp",
         "longDescription": "LlamaStudio is a local-first desktop app for llama.cpp with chat, model management, analytics, and setup guidance.",
@@ -61,5 +62,17 @@
         "icon": [
             "icons/app-icon.png"
         ]
+    }
+    ,
+    "plugins": {
+        "updater": {
+            "pubkey": "${LLAMASTUDIO_UPDATER_PUBKEY}",
+            "endpoints": [
+                "https://github.com/KM-Alee/llama-studio/releases/latest/download/latest.json"
+            ],
+            "windows": {
+                "installMode": "passive"
+            }
+        }
     }
 }

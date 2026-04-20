@@ -2,6 +2,7 @@ use llamastudio_backend::app::{AppRuntime, init_tracing, stop_llama};
 use llamastudio_backend::state::AppState;
 use std::sync::Mutex;
 use tauri::{Manager, WebviewUrl, WindowEvent, webview::WebviewWindowBuilder};
+use tauri_plugin_updater::Builder as UpdaterPluginBuilder;
 use tokio::sync::oneshot;
 use url::Url;
 
@@ -55,6 +56,8 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_localhost::Builder::new(port).build())
+        .plugin(tauri_plugin_process::init())
+        .plugin(UpdaterPluginBuilder::new().build())
         .setup(move |app| {
             app.manage(DesktopState::new(app_state.clone(), shutdown_tx));
 

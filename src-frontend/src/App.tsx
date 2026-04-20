@@ -1,5 +1,6 @@
 import { Routes, Route, Link } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
+import { UpdateNotice } from '@/components/UpdateNotice'
 import { ChatPage } from '@/pages/ChatPage'
 import { ModelAnalyticsPage } from '@/pages/ModelAnalyticsPage'
 import { ModelsPage } from '@/pages/ModelsPage'
@@ -35,15 +36,18 @@ function NotFoundPage() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<ChatPage />} />
-        <Route path="/chat/:conversationId?" element={<ChatPage />} />
-        <Route path="/models" element={<ModelsPage />} />
-        <Route path="/models/analytics/:modelId?" element={<ModelAnalyticsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-    </Routes>
+    <>
+      <UpdateNotice />
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<ChatPage />} />
+          <Route path="/chat/:conversationId?" element={<ChatPage />} />
+          <Route path="/models" element={<ModelsPage />} />
+          <Route path="/models/analytics/:modelId?" element={<ModelAnalyticsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </>
   )
 }

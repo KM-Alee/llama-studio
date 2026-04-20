@@ -3,5 +3,5 @@
   "identifier": "main-capability",
   "description": "Default capability for the LlamaStudio desktop shell",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "updater:default"]
 }

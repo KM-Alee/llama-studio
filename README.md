@@ -1,103 +1,140 @@
 # LlamaStudio
 
 <div align="center">
-  <img src="readmepic.png" alt="LlamaStudio Interface" width="100%" style="margin-bottom: 20px;">
+  <img src="src-frontend/public/logo.png" alt="LlamaStudio logo" width="128" height="128">
 
-  <p align="center">
-    <strong>A local-first desktop app for llama.cpp with a polished chat workflow.</strong>
-    <br />
-    Built with Rust, React 19, and Tauri 2.
+  <h1>LlamaStudio</h1>
+
+  <p>
+    <strong>Local-first AI chat for llama.cpp, packaged like a real desktop product.</strong>
   </p>
 
-  <p align="center">
-    <a href="#features">Features</a> •
-    <a href="#first-run">First Run</a> •
-    <a href="#development">Development</a> •
-    <a href="#release-builds">Release Builds</a>
+  <p>
+    Chat, manage GGUF models, inspect runtime health, and ship desktop builds with updates.
   </p>
+
+  <p>
+    <a href="https://github.com/KM-Alee/llama-studio/releases">Releases</a>
+    ·
+    <a href="#quick-install">Quick Install</a>
+    ·
+    <a href="#features">Features</a>
+    ·
+    <a href="#development">Development</a>
+  </p>
+
+  <img src="readmepic.png" alt="LlamaStudio screenshot" width="100%">
 </div>
 
 ---
 
-LlamaStudio is a local-first desktop app for [llama.cpp](https://github.com/ggerganov/llama.cpp). It bundles its own Rust backend, provides a desktop UI through Tauri, manages chat history and models locally, and guides first-time users through runtime setup.
+## Why It Impresses
 
-## Features
+LlamaStudio is designed to feel like a serious local AI desktop product, not a raw wrapper around `llama.cpp`.
 
-- Local chat UI with Markdown, code highlighting, tables, math, and streaming responses
-- Model scanning, import, analytics, and local GGUF management
-- Normal and Advanced profiles for clean defaults or deeper control
-- System prompt templates with create, edit, and delete flows
-- Built-in dependency status panel for `llama-server`, `llama-cli`, and optional Hugging Face CLI
-- Windows and Linux desktop packaging
+- Clean brutalist UI with strong defaults
+- Built-in desktop backend, so users do not need to run a separate service
+- Dependency detection and onboarding for `llama-server`
+- Windows and Linux desktop releases
+- Update notifications for new GitHub releases
+- Local chat, markdown rendering, templates, analytics, and model management
+
+## Quick Install
+
+### Linux
+
+One-line install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KM-Alee/llama-studio/main/scripts/install-linux.sh | bash
+```
+
+### Windows
+
+Download the latest installer from the [Releases page](https://github.com/KM-Alee/llama-studio/releases).
+
+- `.exe` for the easiest installer flow
+- `.msi` for enterprise or managed environments
 
 ## First Run
 
-LlamaStudio is designed so the desktop app bundles its own backend.
+LlamaStudio already bundles its own backend.
 
-What users need:
+On first launch:
 
-1. Install the LlamaStudio desktop build for their platform.
-2. Open `Settings` and check the `Runtime Dependencies` section.
-3. Install `llama-server` if it is missing.
-4. Point `Binary Path` to `llama-server` if it is not already on `PATH`.
-5. Set a models directory and import or scan GGUF models.
+1. Open `Settings`
+2. Check `Runtime Dependencies`
+3. Install `llama-server` if it is missing
+4. Set your models directory
+5. Import or scan GGUF models
+6. Start chatting
 
-Notes:
+## Features
 
-- Hugging Face browsing and downloads work in-app already.
-- Hugging Face CLI is optional.
-- `llama-cli` is optional but improves local model inspection.
+- Streaming local chat with markdown, code blocks, tables, and math
+- Template system with create, edit, and delete support
+- Model browsing, import, download, and analytics
+- Built-in settings for runtime dependencies and llama.cpp paths
+- Advanced inference controls with safe defaults
+- Desktop update prompt when a new release is available
 
-## Runtime Defaults
+## Releases
 
-- Vite dev server: `6767`
-- LlamaStudio backend: `6868`
-- llama.cpp server: `6970`
-- Default theme: `light`
+GitHub Actions builds release artifacts for:
+
+- Windows: `NSIS`, `MSI`
+- Linux: `AppImage`, `deb`, `rpm`
+
+The release workflow is also prepared for:
+
+- Tauri updater signatures
+- Windows certificate import for code signing
+
+## Code Signing
+
+LlamaStudio includes release automation hooks for Windows signing and Tauri updater signatures.
+
+To fully avoid SmartScreen and trust warnings in production, configure:
+
+- `WINDOWS_CERTIFICATE`
+- `WINDOWS_CERTIFICATE_PASSWORD`
+- `TAURI_SIGNING_PRIVATE_KEY`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+- `TAURI_UPDATER_PUBKEY`
+
+For best Windows trust results, use an EV certificate or Azure Trusted Signing.
 
 ## Development
 
 ```bash
-# frontend
 cd src-frontend
 npm install
 npm run lint
 npm test
 npm run build
 
-# backend
 cd ../src-backend
 cargo test
 ```
 
-## Release Builds
-
-Desktop release targets are configured for:
-
-- Windows: `NSIS`, `MSI`
-- Linux: `AppImage`, `deb`, `rpm`
-
-GitHub releases are built by `.github/workflows/release.yml`.
-
-## Repository Layout
+## Repository Structure
 
 ```text
-src-backend/          Rust Axum backend
+src-backend/          Rust backend
 src-frontend/         React frontend + Tauri shell
 docs/                 Product and architecture docs
+scripts/              Installer helpers
 .github/workflows/    CI and release automation
 ```
 
-## Push Readiness
+## Production Validation
 
-Before pushing, validate:
+These checks should pass before release:
 
 ```bash
 cd src-frontend && npm run lint && npm test && npm run build
 cd ../src-backend && cargo test
 ```
-
-For desktop packaging changes, also validate Tauri builds in CI or on target platforms.
 
 ## License
 
