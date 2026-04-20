@@ -14,8 +14,43 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare-release:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: LlamaStudio ${{ github.ref_name }}
+          body: |
+            ## LlamaStudio
+
+            A polished local-first desktop app for llama.cpp.
+
+            ### Release assets
+            - Source code archives are included automatically by GitHub.
+            - Desktop bundles are attached for each supported platform.
+            - Standalone backend binaries are attached for each supported platform.
+
+            ### Downloads
+            - Windows: `.exe`, `.msi`, and `llamastudio-backend-windows-x86_64.zip`
+            - Linux: `.AppImage`, `.deb`, `.rpm`, and `llamastudio-backend-linux-x86_64.tar.gz`
+
+            ### Quick Install
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/KM-Alee/llama-studio/main/scripts/install-linux.sh | bash
+            ```
+
+            ### Notes
+            - The desktop app bundles its own backend.
+            - If `llama-server` is missing, open Settings and follow the install guidance.
+          draft: false
+          prerelease: false
+
   publish-tauri:
     name: Release (${{ matrix.platform }})
+    needs: prepare-release
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -109,9 +144,14 @@ jobs:
 
             A polished local-first desktop app for llama.cpp.
 
+            ### Release assets
+            - Source code archives are included automatically by GitHub.
+            - Desktop bundles are attached for each supported platform.
+            - Standalone backend binaries are attached for each supported platform.
+
             ### Downloads
-            - Windows: `.exe` or `.msi`
-            - Linux: `.AppImage`, `.deb`, or `.rpm`
+            - Windows: `.exe`, `.msi`, and `llamastudio-backend-windows-x86_64.zip`
+            - Linux: `.AppImage`, `.deb`, `.rpm`, and `llamastudio-backend-linux-x86_64.tar.gz`
 
             ### Quick Install
             ```bash
@@ -119,8 +159,54 @@ jobs:
             ```
 
             ### Notes
-            - The app bundles its own backend.
+            - The desktop app bundles its own backend.
             - If `llama-server` is missing, open Settings and follow the install guidance.
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
+
+  publish-backend:
+    name: Backend binary (${{ matrix.platform }})
+    needs: prepare-release
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            runner: ubuntu-22.04
+            asset_name: llamastudio-backend-linux-x86_64.tar.gz
+          - platform: windows-x86_64
+            runner: windows-2022
+            asset_name: llamastudio-backend-windows-x86_64.zip
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-backend -> target
+
+      - name: Build backend binary
+        run: cargo build --manifest-path src-backend/Cargo.toml --release
+
+      - name: Package backend binary (Linux)
+        if: runner.os == 'Linux'
+        run: tar -C src-backend/target/release -czf ${{ matrix.asset_name }} llamastudio-backend
+
+      - name: Package backend binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path src-backend/target/release/llamastudio-backend.exe -DestinationPath ${{ matrix.asset_name }} -Force
+
+      - name: Upload backend asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ${{ matrix.asset_name }}
