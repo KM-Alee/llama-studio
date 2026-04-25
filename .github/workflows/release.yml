@@ -184,13 +184,24 @@ jobs:
               ;;
           esac
 
+      - name: Tauri args (disable updater artifacts in CI releases)
+        id: tauri_final_args
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='${{ steps.tauri_args.outputs.args }}'
+          extra='-c {"bundle":{"createUpdaterArtifacts":false}}'
+          if [ -n "$base" ]; then
+            echo "args=$base $extra" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=$extra" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_STRIP: '1'
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           LLAMASTUDIO_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
           TAURI_BUNDLER_DMG_IGNORE_CI: ${{ runner.os == 'macOS' && 'false' || 'true' }}
         with:
@@ -227,7 +238,7 @@ jobs:
             - The desktop app bundles the LlamaStudio backend; it does not bundle the upstream `llama-server` binary. Use the installer’s llama step, *Settings → Runtime Dependencies*, or the NSIS (Windows) prompt after install to open official downloads. GPU: pick a matching `llama.cpp` release (CUDA/ROCm/Vulkan) for your system.
           releaseDraft: false
           prerelease: false
-          args: ${{ steps.tauri_args.outputs.args }}
+          args: ${{ steps.tauri_final_args.outputs.args }}
 
       - name: Checksum bundle tree and archive full bundle output
         shell: bash
@@ -287,6 +298,22 @@ jobs:
         with:
           workspaces: |
             src-backend -> target
+
+      - name: Ensure frontend dist placeholder (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p src-frontend/dist
+          test -f src-frontend/dist/index.html || printf '%s\n' '<!doctype html><title>LlamaStudio</title>' > src-frontend/dist/index.html
+
+      - name: Ensure frontend dist placeholder (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path src-frontend/dist | Out-Null
+          if (-not (Test-Path src-frontend/dist/index.html)) {
+            Set-Content -Path src-frontend/dist/index.html -Value '<!doctype html><title>LlamaStudio</title>'
+          }
 
       - name: Build backend binary
         run: cargo build --manifest-path src-backend/Cargo.toml --release
