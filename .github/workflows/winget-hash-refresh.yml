@@ -1,0 +1,48 @@
+name: Winget hash refresh (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+      repository:
+        description: 'owner/repo to read releases from'
+        required: false
+        default: 'KM-Alee/llama-studio'
+
+permissions:
+  contents: read
+
+jobs:
+  print-hashes:
+    name: Download release installers and print SHA256
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch NSIS + MSI from GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          REPO="${{ inputs.repository }}"
+          mkdir -p /tmp/winget-hashes
+          gh release download "$TAG" -R "$REPO" \
+            -p 'LlamaStudio_*_x64-setup.exe' \
+            -p 'LlamaStudio_*_x64_en-US.msi' \
+            -D /tmp/winget-hashes/ || true
+          ls -la /tmp/winget-hashes/ || true
+
+      - name: SHA256 for winget manifests
+        run: |
+          set -euo pipefail
+          echo "Update InstallerSha256 in packaging/winget/manifests/k/KM-Alee/LlamaStudio/<version>/KM-Alee.LlamaStudio.installer.yaml"
+          echo "---"
+          shopt -s nullglob
+          for f in /tmp/winget-hashes/*.exe /tmp/winget-hashes/*.msi; do
+            [ -f "$f" ] || continue
+            bn=$(basename "$f")
+            sum=$(sha256sum "$f" | awk '{print $1}')
+            printf '%s\n  InstallerSha256: %s\n\n' "$bn" "$sum"
+          done
+          echo "On Windows you can also run: winget hash <path-to-installer> --machine"

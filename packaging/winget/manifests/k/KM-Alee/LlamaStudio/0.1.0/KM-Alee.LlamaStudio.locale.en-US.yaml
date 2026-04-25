@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: KM-Alee.LlamaStudio
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: LlamaStudio
+PublisherUrl: https://github.com/KM-Alee/llama-studio
+PackageName: LlamaStudio
+PackageUrl: https://github.com/KM-Alee/llama-studio
+License: MIT
+LicenseUrl: https://github.com/KM-Alee/llama-studio/blob/main/LICENSE
+Copyright: Copyright (c) 2026 AI Studio Contributors
+ShortDescription: Local-first desktop app for llama.cpp
+Description: LlamaStudio is a local-first desktop app for llama.cpp with chat, model management, analytics, and setup guidance.
+Moniker: llamastudio
+Tags:
+  - llama.cpp
+  - ai
+  - local
+  - chat
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

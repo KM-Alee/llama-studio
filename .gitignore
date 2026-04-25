@@ -1,10 +1,17 @@
 # Dependencies
 node_modules/
+.pnpm-store/
 target/
 
 # Build output
 src-frontend/dist/
 src-backend/target/
+
+# Local release artifacts (never commit; produced by cargo/tauri release builds)
+src-backend/*.exe
+src-backend/*.zip
+src-backend/*.tar.gz
+src-backend/llamastudio-linux-x86_64
 
 # IDE
 .idea/

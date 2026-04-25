@@ -4,6 +4,7 @@
 // construct the router and exercise endpoints without starting a TCP listener.
 
 pub mod app;
+pub mod app_core;
 pub mod db;
 pub mod error;
 pub mod routes;

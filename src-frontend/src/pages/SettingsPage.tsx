@@ -22,7 +22,6 @@ const DEFAULT_FORM: AppConfig = {
   default_profile: 'normal',
   theme: 'light',
   llama_server_port: 6970,
-  app_port: 6868,
   context_size: 4096,
   gpu_layers: -1,
   threads: 0,
@@ -47,7 +46,7 @@ function SettingsCard({
   children: ReactNode
 }) {
   return (
-    <section className="border-2 border-border bg-surface-dim p-5">
+    <section className="ui-card p-5">
       <h2 className="mb-0.5 text-sm font-bold text-text">{title}</h2>
       {description && <p className="mb-4 text-xs text-text-muted">{description}</p>}
       {!description && <div className="mb-4" />}
@@ -81,21 +80,23 @@ function Toggle({
   description?: string
 }) {
   return (
-    <div className="flex items-center gap-3 border border-border bg-surface px-3 py-3">
+    <div className="border-2 border-border bg-surface px-3 py-3">
+      <div className="flex items-center gap-3">
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 shrink-0 transition-colors ${checked ? 'bg-primary' : 'bg-border'}`}
+        className={`relative h-5 w-10 shrink-0 border-2 border-border transition-colors ${checked ? 'bg-primary' : 'bg-surface-dim'}`}
       >
         <span
-          className={`absolute left-0.5 top-0.5 h-4 w-4 bg-white shadow-sm transition-transform ${checked ? 'translate-x-4' : ''}`}
+          className={`absolute left-0.5 top-0.5 h-3.5 w-3.5 border border-border bg-white shadow-sm transition-transform ${checked ? 'translate-x-5' : ''}`}
         />
       </button>
       <div>
         <span className="text-sm font-medium text-text">{label}</span>
         {description && <p className="mt-0.5 text-xs text-text-muted">{description}</p>}
+      </div>
       </div>
     </div>
   )
@@ -216,22 +217,6 @@ function SettingsEditor({
           </label>
         </SettingsCard>
 
-        <SettingsCard title="LlamaStudio" description="Frontend and server wiring">
-          <div className="space-y-4">
-            <label className="block">
-              <FieldLabel hint="HTTP port used by the LlamaStudio backend. Restart the app after changing it.">
-                App Port
-              </FieldLabel>
-              <input
-                type="number"
-                value={form.app_port}
-                onChange={(event) => setForm({ ...form, app_port: Number(event.target.value) })}
-                className={inputClass}
-              />
-            </label>
-          </div>
-        </SettingsCard>
-
         <SettingsCard title="llama.cpp" description="Server binary and model storage settings">
           <div className="space-y-4">
             <label className="block">
@@ -280,9 +265,9 @@ function SettingsEditor({
                 key={preset.name}
                 type="button"
                 onClick={() => applyPreset(preset)}
-                className="flex items-center gap-3 border border-border bg-surface p-3 text-left transition-colors hover:border-primary hover:bg-surface-hover"
+                className="ui-card flex items-center gap-3 p-3 text-left transition-colors hover:border-primary hover:bg-surface-hover"
               >
-                <div className="flex h-8 w-8 items-center justify-center border border-border bg-surface">
+                <div className="flex h-8 w-8 items-center justify-center border-2 border-border bg-surface">
                   <preset.icon className="h-4 w-4 text-text-secondary" />
                 </div>
                 <div>
@@ -481,7 +466,7 @@ function SettingsEditor({
           <SettingsCard title="Hardware" description="Detected system specifications">
             <div className="grid gap-3 sm:grid-cols-2">
               {hardware.cpu_cores && (
-                <div className="flex items-center gap-3 border border-border bg-surface p-4">
+                <div className="ui-card flex items-center gap-3 p-4">
                   <Cpu className="h-5 w-5 shrink-0 text-text-muted" />
                   <div>
                     <div className="text-sm font-semibold text-text">
@@ -492,7 +477,7 @@ function SettingsEditor({
                 </div>
               )}
               {hardware.total_ram_bytes && (
-                <div className="flex items-center gap-3 border border-border bg-surface p-4">
+                <div className="ui-card flex items-center gap-3 p-4">
                   <HardDrive className="h-5 w-5 shrink-0 text-text-muted" />
                   <div>
                     <div className="text-sm font-semibold text-text">
@@ -529,7 +514,7 @@ function DependencySetupCard() {
       ) : (
         <div className="space-y-3">
           {data.dependencies.map((dependency) => (
-            <div key={dependency.key} className="border border-border bg-surface p-4">
+            <div key={dependency.key} className="ui-card p-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
@@ -549,7 +534,11 @@ function DependencySetupCard() {
                 </div>
                 <div className="shrink-0 text-right">
                   <div
-                    className={dependency.installed ? 'text-xs font-semibold text-success' : 'text-xs font-semibold text-warning'}
+                    className={
+                      dependency.installed
+                        ? 'text-xs font-semibold uppercase tracking-wider text-success'
+                        : 'text-xs font-semibold uppercase tracking-wider text-warning'
+                    }
                   >
                     {dependency.installed ? 'Installed' : 'Missing'}
                   </div>
@@ -557,7 +546,7 @@ function DependencySetupCard() {
                     href={dependency.install_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
+                    className="ui-button ui-button-secondary mt-2 min-h-0 px-3 py-1.5 text-xs"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
                     Install Guide
@@ -619,7 +608,7 @@ export function SettingsPage() {
 
   return (
     <SettingsEditor
-      key={`${config.app_port}-${config.llama_server_port}-${config.context_size}-${(flagsData?.flags ?? []).join(' ')}`}
+      key={`${config.llama_server_port}-${config.context_size}-${(flagsData?.flags ?? []).join(' ')}`}
       initialConfig={{ ...DEFAULT_FORM, ...config }}
       initialFlags={flagsData?.flags ?? []}
       hardware={hardware?.hardware}

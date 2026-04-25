@@ -1,0 +1,26 @@
+{
+    "bundle": {
+        "active": true,
+        "targets": ["deb", "rpm", "appimage"],
+        "linux": {
+            "deb": {
+                "depends": [
+                    "libgtk-3-0",
+                    "libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37",
+                    "libayatana-appindicator3-1 | libappindicator3-1",
+                    "libxdo3",
+                    "libssl3 | libssl1.1"
+                ]
+            },
+            "rpm": {
+                "depends": [
+                    "webkit2gtk4.1",
+                    "gtk3",
+                    "libappindicator-gtk3",
+                    "xdotool",
+                    "openssl"
+                ]
+            }
+        }
+    }
+}

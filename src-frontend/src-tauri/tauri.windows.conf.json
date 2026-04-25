@@ -1,0 +1,27 @@
+{
+    "bundle": {
+        "windows": {
+            "nsis": {
+                "displayLanguageSelector": true,
+                "installerIcon": "icons/app-icon.png",
+                "sidebarImage": "nsis-assets/nsis-sidebar.bmp",
+                "headerImage": "nsis-assets/nsis-header.bmp",
+                "installerHooks": "nsis/installer-hooks.nsh",
+                "installMode": "both",
+                "languages": [
+                    "English",
+                    "German",
+                    "French",
+                    "Spanish",
+                    "SimpChinese"
+                ],
+                "startMenuFolder": "LlamaStudio",
+                "compression": "lzma"
+            },
+            "wix": {
+                "language": "en-US",
+                "upgradeCode": "8725047f-4a91-5e52-8794-1afe199355e2"
+            }
+        }
+    }
+}

@@ -182,7 +182,7 @@ export function TopBar() {
                         toast.error('Export failed')
                       }
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
+                    className="w-full px-4 py-2 text-left font-mono text-xs uppercase tracking-wider text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
                   >
                     Markdown
                   </button>
@@ -206,7 +206,7 @@ export function TopBar() {
                         toast.error('Export failed')
                       }
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
+                    className="w-full px-4 py-2 text-left font-mono text-xs uppercase tracking-wider text-text-secondary transition-colors hover:bg-surface-hover hover:text-text"
                   >
                     JSON
                   </button>

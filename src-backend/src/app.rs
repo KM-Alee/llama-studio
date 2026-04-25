@@ -15,6 +15,21 @@ use crate::state::AppState;
 /// Maximum allowed HTTP request body: 32 MiB (covers large prompts and model imports).
 const MAX_BODY_BYTES: usize = 32 * 1024 * 1024;
 const DEV_FRONTEND_PORT: u16 = 6767;
+/// Default bind port for the optional standalone HTTP server (`llamastudio-backend`).
+const DEFAULT_HTTP_LISTEN_PORT: u16 = 6868;
+
+/// TCP port for the **standalone** Axum server (CLI binary, browser against Vite proxy, CI).
+/// The Tauri desktop build does not use this listener for UI I/O (it uses in-process IPC).
+///
+/// Environment variable `LLAMASTUDIO_APP_PORT` is a historical name from when the desktop
+/// shell loaded the SPA over HTTP; it now only affects [`AppRuntime`] / `llamastudio-backend`.
+fn http_listen_port() -> u16 {
+    std::env::var("LLAMASTUDIO_APP_PORT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .filter(|&p| p >= 1024)
+        .unwrap_or(DEFAULT_HTTP_LISTEN_PORT)
+}
 
 /// Reusable server runtime used by the CLI backend and the Tauri shell.
 pub struct AppRuntime {
@@ -27,10 +42,10 @@ pub struct AppRuntime {
 impl AppRuntime {
     pub async fn new() -> Result<Self> {
         let state = AppState::new().await?;
-        let app_port = state.config.get_app_port().await;
-        let addr = SocketAddr::from(([127, 0, 0, 1], app_port));
+        let listen_port = http_listen_port();
+        let addr = SocketAddr::from(([127, 0, 0, 1], listen_port));
         let listener = tokio::net::TcpListener::bind(addr).await?;
-        let router = build_router(state.clone(), app_port);
+        let router = build_router(state.clone(), listen_port);
 
         Ok(Self {
             state,
@@ -121,8 +136,9 @@ pub async fn shutdown_signal() {
     }
 }
 
-fn build_router(state: AppState, app_port: u16) -> Router {
-    let cors_origins: Vec<HeaderValue> = [DEV_FRONTEND_PORT, app_port]
+/// Full HTTP API router (used by [`AppRuntime`] and integration tests).
+pub fn build_router(state: AppState, http_listen_port: u16) -> Router {
+    let cors_origins: Vec<HeaderValue> = [DEV_FRONTEND_PORT, http_listen_port]
         .iter()
         .flat_map(|&port| {
             [

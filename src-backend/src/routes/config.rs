@@ -1,7 +1,8 @@
 use axum::{Json, Router, extract::State, routing::get};
-use serde_json::{Value, json};
+use serde_json::Value;
 
-use crate::error::{AppError, AppResult};
+use crate::app_core::config;
+use crate::error::AppResult;
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
@@ -9,18 +10,12 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn get_config(State(state): State<AppState>) -> AppResult<Json<Value>> {
-    let config = state.config.get_all().await?;
-    Ok(Json(json!(config)))
+    Ok(Json(config::get_config(&state).await?))
 }
 
 async fn update_config(
     State(state): State<AppState>,
     Json(req): Json<Value>,
 ) -> AppResult<Json<Value>> {
-    let config = state
-        .config
-        .update(req)
-        .await
-        .map_err(|e| AppError::BadRequest(e.to_string()))?;
-    Ok(Json(json!(config)))
+    Ok(Json(config::update_config(&state, req).await?))
 }

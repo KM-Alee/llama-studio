@@ -3,6 +3,7 @@ import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
 import { useAppStore } from '@/stores/appStore'
 import { getDownloads } from '@/lib/api'
+import { isDesktopRuntime } from '@/lib/platform/env'
 import { formatBytes } from '@/lib/utils'
 
 export function StatusBar() {
@@ -14,7 +15,8 @@ export function StatusBar() {
   const { data: downloadsData } = useQuery({
     queryKey: ['downloads'],
     queryFn: getDownloads,
-    refetchInterval: 2000,
+    // Desktop gets push updates via Tauri; browser polls.
+    refetchInterval: isDesktopRuntime() ? false : 2000,
   })
 
   const activeModel = models.find((model) => model.id === activeModelId)
@@ -22,9 +24,18 @@ export function StatusBar() {
     (download) => download.status === 'downloading' || download.status === 'queued',
   )
   const primaryDownload = activeDownloads[0]
+  const downloadPercent: number = primaryDownload
+    ? typeof primaryDownload.progress === 'number' && !Number.isNaN(primaryDownload.progress)
+      ? Math.round(primaryDownload.progress)
+      : (() => {
+          const t = primaryDownload.total_bytes
+          if (t == null || t === 0) return 0
+          return Math.round((primaryDownload.downloaded_bytes / t) * 100)
+        })()
+    : 0
 
   return (
-    <footer className="flex h-7 shrink-0 select-none items-center justify-between border-t border-border bg-surface-dim px-4">
+    <footer className="flex h-8 shrink-0 select-none items-center justify-between border-t-2 border-border bg-surface-dim px-4">
       <div className="flex items-center gap-4 overflow-hidden">
         <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted truncate">
           {activeModel ? activeModel.name : 'No model loaded'}
@@ -41,12 +52,12 @@ export function StatusBar() {
         )}
         {primaryDownload && (
           <span className="font-mono text-[10px] uppercase tracking-wider text-primary truncate">
-            ↓ {primaryDownload.filename} {Math.round(primaryDownload.progress)}%
+            ↓ {primaryDownload.filename} {downloadPercent}%
           </span>
         )}
       </div>
       <div className="flex items-center gap-3">
-        <kbd className="border border-border bg-surface px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-text-muted">
+        <kbd className="border-2 border-border bg-surface px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-text-muted">
           Ctrl+K
         </kbd>
         <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted/60">

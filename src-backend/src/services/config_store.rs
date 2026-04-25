@@ -5,7 +5,6 @@ use std::sync::Arc;
 
 use crate::db::Database;
 
-pub const DEFAULT_APP_PORT: u16 = 6868;
 pub const DEFAULT_LLAMA_SERVER_PORT: u16 = 6970;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,7 +14,6 @@ pub struct AppConfig {
     pub default_profile: String,
     pub theme: String,
     pub llama_server_port: u16,
-    pub app_port: u16,
     pub gpu_layers: i32,
     pub context_size: u32,
     pub threads: u32,
@@ -40,7 +38,6 @@ impl Default for AppConfig {
             default_profile: "normal".to_string(),
             theme: "light".to_string(),
             llama_server_port: DEFAULT_LLAMA_SERVER_PORT,
-            app_port: DEFAULT_APP_PORT,
             gpu_layers: -1,
             context_size: 4096,
             threads: 0, // 0 = auto-detect
@@ -104,12 +101,6 @@ impl ConfigStore {
         if cfg.llama_server_port < 1024 {
             anyhow::bail!("llama_server_port must be >= 1024");
         }
-        if cfg.app_port < 1024 {
-            anyhow::bail!("app_port must be >= 1024");
-        }
-        if cfg.llama_server_port == cfg.app_port {
-            anyhow::bail!("llama_server_port and app_port must be different");
-        }
         if cfg.models_directory.is_empty() {
             anyhow::bail!("models_directory must not be empty");
         }
@@ -139,10 +130,6 @@ impl ConfigStore {
 
     pub async fn get_llama_port(&self) -> u16 {
         self.config.read().await.llama_server_port
-    }
-
-    pub async fn get_app_port(&self) -> u16 {
-        self.config.read().await.app_port
     }
 
     pub async fn get_models_dir(&self) -> String {

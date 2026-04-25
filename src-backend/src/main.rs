@@ -1,5 +1,5 @@
-use llamastudio_backend::app::{AppRuntime, init_tracing, shutdown_signal};
 use anyhow::Result;
+use llamastudio_backend::app::{AppRuntime, init_tracing, shutdown_signal};
 
 #[tokio::main]
 async fn main() -> Result<()> {

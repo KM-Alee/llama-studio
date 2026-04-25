@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Preset } from '@/lib/api'
+import { setUiPreferences, type Preset } from '@/lib/api'
+import { isDesktopRuntime } from '@/lib/platform/env'
 
 const STORAGE_KEY = 'llama-studio-custom-templates'
 const CHANGE_EVENT = 'llama-studio-custom-templates-changed'
+
+/** DB-backed list on Tauri, set before root render. */
+let desktopCustomTemplates: Preset[] | null = null
+
+/** Called from `bootstrapDesktopUiFromLegacy` (native); must run before the first `useCustomTemplates` mount. */
+export function setDesktopCustomTemplatesFromDb(templates: Preset[]) {
+  if (!isDesktopRuntime()) return
+  desktopCustomTemplates = Array.isArray(templates) ? templates : []
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -44,6 +54,9 @@ function normalizeTemplate(value: unknown): Preset | null {
 }
 
 export function loadCustomTemplates(): Preset[] {
+  if (isDesktopRuntime() && desktopCustomTemplates != null) {
+    return desktopCustomTemplates
+  }
   if (typeof window === 'undefined') {
     return []
   }
@@ -66,12 +79,17 @@ export function loadCustomTemplates(): Preset[] {
 }
 
 export function saveCustomTemplates(templates: Preset[]) {
-  if (typeof window === 'undefined') {
-    return
+  if (isDesktopRuntime()) {
+    desktopCustomTemplates = templates
+    setUiPreferences(undefined, templates).catch(() => {
+      // ignore: offline / startup ordering
+    })
+  } else if (typeof window !== 'undefined') {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(templates))
   }
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(templates))
-  window.dispatchEvent(new Event(CHANGE_EVENT))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(CHANGE_EVENT))
+  }
 }
 
 function createTemplateId() {

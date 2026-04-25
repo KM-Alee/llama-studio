@@ -1,17 +1,20 @@
 use std::convert::Infallible;
+use std::pin::Pin;
 use std::process::Stdio;
 use std::sync::Arc;
 
 use anyhow::Result;
 use axum::response::sse::Event;
-use futures::stream::Stream;
+use bytes::Bytes;
+use futures::stream::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::task::{Context, Poll};
 use tokio::process::{Child, Command};
 use tokio::sync::broadcast;
 
+use crate::app_core::chat_types::ChatRequest;
 use crate::db::Database;
 use crate::error::{AppError, AppResult};
-use crate::routes::chat::ChatRequest;
 use crate::services::config_store::ConfigStore;
 use crate::services::runtime_tools;
 
@@ -243,7 +246,8 @@ impl LlamaProcessManager {
 
         self.push_log(format!(
             "Starting llama.cpp: {} -m {}",
-            llama_path.display(), model_path
+            llama_path.display(),
+            model_path
         ));
         tracing::info!(model = %model_path, binary = %llama_path.display(), "Spawning llama.cpp server");
 
@@ -447,15 +451,8 @@ pub async fn monitor_for_exit(llama: Arc<tokio::sync::RwLock<LlamaProcessManager
     }
 }
 
-/// Creates a chat completion SSE stream by proxying to llama.cpp.
-/// Properly parses llama.cpp's SSE output and re-emits clean SSE events.
-pub async fn create_chat_stream(
-    port: u16,
-    req: ChatRequest,
-) -> AppResult<impl Stream<Item = Result<Event, Infallible>>> {
-    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
-
-    // Build messages, prepending system prompt if provided
+/// JSON body for llama.cpp `POST /v1/chat/completions` (shared by HTTP SSE and desktop streaming).
+pub fn build_llama_chat_body(req: &ChatRequest) -> serde_json::Value {
     let mut messages: Vec<serde_json::Value> = Vec::new();
     if let Some(ref sys) = req.system_prompt {
         messages.push(serde_json::json!({"role": "system", "content": sys}));
@@ -469,7 +466,6 @@ pub async fn create_chat_stream(
         "stream": true,
     });
 
-    // Forward optional inference parameters to llama.cpp
     let obj = body.as_object_mut().unwrap();
     if let Some(v) = req.temperature {
         obj.insert("temperature".into(), v.into());
@@ -520,13 +516,17 @@ pub async fn create_chat_stream(
         obj.insert("tfs_z".into(), v.into());
     }
 
+    body
+}
+
+async fn post_llama_chat_completions(port: u16, req: &ChatRequest) -> AppResult<reqwest::Response> {
+    let url = format!("http://127.0.0.1:{}/v1/chat/completions", port);
+    let body = build_llama_chat_body(req);
     let client = reqwest::Client::new();
     let response = client.post(&url).json(&body).send().await.map_err(|e| {
         AppError::Internal(anyhow::anyhow!("Failed to connect to llama.cpp: {}", e))
     })?;
 
-    // Propagate any error status from llama.cpp as a 502 so the frontend can
-    // surface a meaningful message rather than receiving a silent empty stream.
     if !response.status().is_success() {
         let status_code = response.status();
         let body_text = response.text().await.unwrap_or_default();
@@ -538,40 +538,129 @@ pub async fn create_chat_stream(
         return Err(AppError::UpstreamError(err_msg));
     }
 
-    let byte_stream = response.bytes_stream();
+    Ok(response)
+}
 
-    use futures::StreamExt;
+/// Re-assembles `data:` SSE lines across TCP chunk boundaries (llama.cpp streams byte chunks).
+struct SseDataPayloadStream {
+    inner: Pin<Box<dyn Stream<Item = Result<Bytes, reqwest::Error>> + Send>>,
+    buf: String,
+}
 
-    // llama.cpp sends SSE-formatted lines: "data: {...}\n\n"
-    // We need to parse each line, extract the JSON, and re-emit as proper Axum SSE events.
-    let event_stream = byte_stream
-        .map(|chunk| match chunk {
-            Ok(bytes) => {
-                let text = String::from_utf8_lossy(&bytes);
-                let mut events = Vec::new();
+impl Stream for SseDataPayloadStream {
+    type Item = String;
 
-                for line in text.lines() {
-                    let line = line.trim();
-                    if line.is_empty() {
-                        continue;
-                    }
-                    if let Some(data) = line.strip_prefix("data: ") {
-                        if data == "[DONE]" {
-                            events.push(Ok(Event::default().data("[DONE]")));
-                        } else {
-                            events.push(Ok(Event::default().data(data)));
-                        }
-                    }
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.as_mut().get_mut();
+        loop {
+            while let Some(nl) = this.buf.find('\n') {
+                let line = this.buf[..nl]
+                    .trim_end_matches('\r')
+                    .trim()
+                    .to_string();
+                this.buf.drain(..nl + 1);
+                if line.is_empty() {
+                    continue;
                 }
-
-                futures::stream::iter(events)
+                if let Some(rest) = line.strip_prefix("data:") {
+                    let payload = rest.trim();
+                    return Poll::Ready(Some(payload.to_string()));
+                }
             }
-            Err(e) => {
-                let err_event = Event::default().data(format!("{{\"error\": \"{}\"}}", e));
-                futures::stream::iter(vec![Ok(err_event)])
+            match this.inner.as_mut().poll_next(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(None) => {
+                    let tail = this.buf.trim();
+                    if tail.is_empty() {
+                        this.buf.clear();
+                        return Poll::Ready(None);
+                    }
+                    if let Some(rest) = tail.strip_prefix("data:") {
+                        let payload = rest.trim().to_string();
+                        this.buf.clear();
+                        return Poll::Ready(Some(payload));
+                    }
+                    this.buf.clear();
+                    return Poll::Ready(None);
+                }
+                Poll::Ready(Some(Err(e))) => {
+                    this.buf.clear();
+                    return Poll::Ready(Some(format!("{{\"error\":\"{}\"}}", e)));
+                }
+                Poll::Ready(Some(Ok(bytes))) => {
+                    this.buf.push_str(&String::from_utf8_lossy(&bytes));
+                }
             }
-        })
-        .flatten();
+        }
+    }
+}
 
-    Ok(event_stream)
+/// Creates a chat completion SSE stream by proxying to llama.cpp.
+/// Properly parses llama.cpp's SSE output and re-emits clean SSE events.
+pub async fn create_chat_stream(
+    port: u16,
+    req: ChatRequest,
+) -> AppResult<impl Stream<Item = Result<Event, Infallible>>> {
+    let response = post_llama_chat_completions(port, &req).await?;
+    let inner: Pin<Box<dyn Stream<Item = Result<Bytes, reqwest::Error>> + Send>> =
+        Box::pin(response.bytes_stream());
+    let s = SseDataPayloadStream {
+        inner,
+        buf: String::new(),
+    };
+    Ok(s.map(|payload| Ok(Event::default().data(payload))))
+}
+
+/// Parses llama.cpp SSE and yields each `data:` payload as a string (for Tauri/desktop, where Axum
+/// [`Event`] does not expose a public data accessor).
+pub async fn create_chat_stream_data_strings(
+    port: u16,
+    req: ChatRequest,
+) -> AppResult<Pin<Box<dyn Stream<Item = String> + Send>>> {
+    let response = post_llama_chat_completions(port, &req).await?;
+    let inner: Pin<Box<dyn Stream<Item = Result<Bytes, reqwest::Error>> + Send>> =
+        Box::pin(response.bytes_stream());
+    Ok(Box::pin(SseDataPayloadStream {
+        inner,
+        buf: String::new(),
+    }))
+}
+
+#[cfg(test)]
+mod sse_tests {
+    use super::SseDataPayloadStream;
+    use bytes::Bytes;
+    use futures::stream::{self, StreamExt};
+
+    #[tokio::test]
+    async fn reassembles_data_line_split_across_chunks() {
+        let inner: std::pin::Pin<
+            Box<dyn futures::stream::Stream<Item = Result<Bytes, reqwest::Error>> + Send>,
+        > = Box::pin(stream::iter(vec![
+            Ok(Bytes::from("data: ")),
+            Ok(Bytes::from("\"hello\"\n")),
+        ]));
+        let mut s = SseDataPayloadStream {
+            inner,
+            buf: String::new(),
+        };
+        assert_eq!(s.next().await, Some("\"hello\"".to_string()));
+        assert_eq!(s.next().await, None);
+    }
+
+    #[tokio::test]
+    async fn emits_multiple_complete_lines_from_one_chunk() {
+        let inner: std::pin::Pin<
+            Box<dyn futures::stream::Stream<Item = Result<Bytes, reqwest::Error>> + Send>,
+        > = Box::pin(stream::iter(vec![Ok(Bytes::from(
+            "data: one\ndata: two\n",
+        ))]));
+        let mut s = SseDataPayloadStream {
+            inner,
+            buf: String::new(),
+        };
+        assert_eq!(s.next().await, Some("one".to_string()));
+        assert_eq!(s.next().await, Some("two".to_string()));
+        assert_eq!(s.next().await, None);
+    }
 }

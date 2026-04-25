@@ -3,8 +3,9 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
-use serde_json::{Value, json};
+use serde_json::Value;
 
+use crate::app_core::presets;
 use crate::error::AppResult;
 use crate::state::AppState;
 
@@ -18,24 +19,21 @@ pub fn router() -> Router<AppState> {
 }
 
 async fn list_presets(State(state): State<AppState>) -> AppResult<Json<Value>> {
-    let presets = state.presets.list().await?;
-    Ok(Json(json!({ "presets": presets })))
+    Ok(Json(presets::list_presets(&state).await?))
 }
 
 async fn create_preset(
     State(state): State<AppState>,
     Json(req): Json<Value>,
 ) -> AppResult<Json<Value>> {
-    let preset = state.presets.create(req).await?;
-    Ok(Json(json!(preset)))
+    Ok(Json(presets::create_preset(&state, req).await?))
 }
 
 async fn get_preset(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> AppResult<Json<Value>> {
-    let preset = state.presets.get(&id).await?;
-    Ok(Json(json!(preset)))
+    Ok(Json(presets::get_preset(&state, &id).await?))
 }
 
 async fn update_preset(
@@ -43,14 +41,12 @@ async fn update_preset(
     Path(id): Path<String>,
     Json(req): Json<Value>,
 ) -> AppResult<Json<Value>> {
-    let preset = state.presets.update(&id, req).await?;
-    Ok(Json(json!(preset)))
+    Ok(Json(presets::update_preset(&state, &id, req).await?))
 }
 
 async fn delete_preset(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> AppResult<Json<Value>> {
-    state.presets.delete(&id).await?;
-    Ok(Json(json!({ "deleted": true })))
+    Ok(Json(presets::delete_preset(&state, &id).await?))
 }

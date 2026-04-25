@@ -13,9 +13,12 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 llamastudio-backend = { path = "../../src-backend" }
 tauri = { version = "2", features = [] }
-tauri-plugin-localhost = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["sync", "macros", "rt-multi-thread", "time"] }
 tracing = "0.1"
-url = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+futures-util = "0.3"
+uuid = { version = "1", features = ["v4"] }
+dashmap = "5"

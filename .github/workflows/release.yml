@@ -5,12 +5,17 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing Git tag to build and publish (e.g. v0.1.0); must already exist on the remote.'
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -18,11 +23,26 @@ jobs:
     name: Prepare release
     runs-on: ubuntu-latest
     steps:
+      - name: Validate manual release tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          case "$TAG" in v*) ;; *)
+            echo "::error::tag must start with v (e.g. v0.1.0), got: $TAG"
+            exit 1
+            ;;
+          esac
+      - name: Verify tag exists on remote (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ github.event.inputs.tag }}
+          fetch-depth: 1
       - name: Create or update GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: LlamaStudio ${{ github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          name: LlamaStudio ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           body: |
             ## LlamaStudio
 
@@ -30,21 +50,26 @@ jobs:
 
             ### Release assets
             - Source code archives are included automatically by GitHub.
-            - Desktop bundles are attached for each supported platform.
+            - Desktop bundles (per platform) plus `llamastudio-tauri-bundle-<platform>.tgz` archives of the full `bundle/` tree, SHA256 sidecars (`shasums-*.txt`, `*.sha256`), and the unstripped main binary where applicable.
             - Standalone backend binaries are attached for each supported platform.
 
             ### Downloads
-            - Windows: `.exe`, `.msi`, and `llamastudio-backend-windows-x86_64.zip`
-            - Linux: `.AppImage`, `.deb`, `.rpm`, and `llamastudio-backend-linux-x86_64.tar.gz`
+            - Windows: NSIS `.exe`, WiX `.msi`, `llamastudio-backend-windows-x86_64.zip`, and checksum files.
+            - Linux: `.AppImage`, `.deb`, `.rpm`, `llamastudio-backend-linux-x86_64.tar.gz`, and checksum files.
+            - macOS: `.dmg` (Apple Silicon on `macos-14`). CI and releases use `--no-sign` unless Apple signing secrets are configured (see repo Progress checklist).
 
-            ### Quick Install
+            ### Quick Install (Linux)
+            **App only (guided: prerequisites, then .deb / .rpm or AppImage + menu icon):**
             ```bash
             curl -fsSL https://raw.githubusercontent.com/KM-Alee/llama-studio/main/scripts/install-linux.sh | bash
             ```
+            **App + official CPU [llama.cpp](https://github.com/ggerganov/llama.cpp) `llama-server` (Ubuntu x64 build; skip if already on PATH):**
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/KM-Alee/llama-studio/main/scripts/install-linux.sh | bash -s -- --with-llama
+            ```
 
             ### Notes
-            - The desktop app bundles its own backend.
-            - If `llama-server` is missing, open Settings and follow the install guidance.
+            - The desktop app bundles the LlamaStudio backend; it does not bundle the upstream `llama-server` binary. Use the installer’s llama step, *Settings → Runtime Dependencies*, or the NSIS (Windows) prompt after install to open official downloads. GPU: pick a matching `llama.cpp` release (CUDA/ROCm/Vulkan) for your system.
           draft: false
           prerelease: false
 
@@ -58,10 +83,10 @@ jobs:
         include:
           - platform: linux-x86_64
             runner: ubuntu-22.04
-            args: ''
           - platform: windows-x86_64
             runner: windows-2022
-            args: ''
+          - platform: darwin-aarch64
+            runner: macos-14
 
     defaults:
       run:
@@ -70,6 +95,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -129,17 +156,48 @@ jobs:
           Remove-Item certificate/tempCert.txt
           Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText)
 
+      - name: Tauri build args (signing vs --no-sign)
+        id: tauri_args
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+        run: |
+          set -euo pipefail
+          case "${{ matrix.platform }}" in
+            darwin-aarch64)
+              if [ -n "$APPLE_CERTIFICATE" ]; then
+                echo "args=" >> "$GITHUB_OUTPUT"
+              else
+                echo "args=--no-sign" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            windows-x86_64)
+              if [ -n "$WINDOWS_CERTIFICATE" ]; then
+                echo "args=" >> "$GITHUB_OUTPUT"
+              else
+                echo "args=--no-sign" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            *)
+              echo "args=" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NO_STRIP: '1'
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           LLAMASTUDIO_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
+          TAURI_BUNDLER_DMG_IGNORE_CI: ${{ runner.os == 'macOS' && 'false' || 'true' }}
         with:
           projectPath: src-frontend
-          tagName: ${{ github.ref_name }}
-          releaseName: LlamaStudio ${{ github.ref_name }}
+          uploadPlainBinary: true
+          tagName: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          releaseName: LlamaStudio ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           releaseBody: |
             ## LlamaStudio
 
@@ -147,24 +205,58 @@ jobs:
 
             ### Release assets
             - Source code archives are included automatically by GitHub.
-            - Desktop bundles are attached for each supported platform.
+            - Desktop bundles (per platform) plus `llamastudio-tauri-bundle-<platform>.tgz` archives of the full `bundle/` tree, SHA256 sidecars (`shasums-*.txt`, `*.sha256`), and the unstripped main binary where applicable.
             - Standalone backend binaries are attached for each supported platform.
 
             ### Downloads
-            - Windows: `.exe`, `.msi`, and `llamastudio-backend-windows-x86_64.zip`
-            - Linux: `.AppImage`, `.deb`, `.rpm`, and `llamastudio-backend-linux-x86_64.tar.gz`
+            - Windows: NSIS `.exe`, WiX `.msi`, `llamastudio-backend-windows-x86_64.zip`, and checksum files.
+            - Linux: `.AppImage`, `.deb`, `.rpm`, `llamastudio-backend-linux-x86_64.tar.gz`, and checksum files.
+            - macOS: `.dmg` (Apple Silicon on `macos-14`). CI and releases use `--no-sign` unless Apple signing secrets are configured (see repo Progress checklist).
 
-            ### Quick Install
+            ### Quick Install (Linux)
+            **App only (guided: prerequisites, then .deb / .rpm or AppImage + menu icon):**
             ```bash
             curl -fsSL https://raw.githubusercontent.com/KM-Alee/llama-studio/main/scripts/install-linux.sh | bash
             ```
+            **App + official CPU [llama.cpp](https://github.com/ggerganov/llama.cpp) `llama-server` (Ubuntu x64 build; skip if already on PATH):**
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/KM-Alee/llama-studio/main/scripts/install-linux.sh | bash -s -- --with-llama
+            ```
 
             ### Notes
-            - The desktop app bundles its own backend.
-            - If `llama-server` is missing, open Settings and follow the install guidance.
+            - The desktop app bundles the LlamaStudio backend; it does not bundle the upstream `llama-server` binary. Use the installer’s llama step, *Settings → Runtime Dependencies*, or the NSIS (Windows) prompt after install to open official downloads. GPU: pick a matching `llama.cpp` release (CUDA/ROCm/Vulkan) for your system.
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ steps.tauri_args.outputs.args }}
+
+      - name: Checksum bundle tree and archive full bundle output
+        shell: bash
+        working-directory: src-frontend
+        run: |
+          set -euo pipefail
+          BUNDLE="src-tauri/target/release/bundle"
+          test -d "$BUNDLE"
+          SUMS="$GITHUB_WORKSPACE/shasums-${{ matrix.platform }}.txt"
+          : > "$SUMS"
+          while IFS= read -r rel; do
+            f="$BUNDLE/${rel#./}"
+            if command -v sha256sum >/dev/null 2>&1; then
+              h=$(sha256sum "$f" | awk '{print $1}')
+            else
+              h=$(shasum -a 256 "$f" | awk '{print $1}')
+            fi
+            echo "$h  bundle/${rel#./}" >> "$SUMS"
+          done < <(cd "$BUNDLE" && find . -type f | LC_ALL=C sort)
+          cd src-tauri/target/release
+          tar -czf "$GITHUB_WORKSPACE/llamastudio-tauri-bundle-${{ matrix.platform }}.tgz" bundle
+
+      - name: Upload bundle checksums and full bundle archive
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          files: |
+            shasums-${{ matrix.platform }}.txt
+            llamastudio-tauri-bundle-${{ matrix.platform }}.tgz
 
   publish-backend:
     name: Backend binary (${{ matrix.platform }})
@@ -184,6 +276,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -206,8 +300,21 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path src-backend/target/release/llamastudio-backend.exe -DestinationPath ${{ matrix.asset_name }} -Force
 
+      - name: SHA256 backend archive (Linux)
+        if: runner.os == 'Linux'
+        run: sha256sum "${{ matrix.asset_name }}" | tee "${{ matrix.asset_name }}.sha256"
+
+      - name: SHA256 backend archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash -Algorithm SHA256 "${{ matrix.asset_name }}").Hash.ToLower()
+          "${h}  ${{ matrix.asset_name }}" | Out-File -Encoding ascii "${{ matrix.asset_name }}.sha256"
+
       - name: Upload backend asset
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          files: ${{ matrix.asset_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          files: |
+            ${{ matrix.asset_name }}
+            ${{ matrix.asset_name }}.sha256

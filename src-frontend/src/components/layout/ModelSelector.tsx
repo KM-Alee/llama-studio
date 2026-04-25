@@ -4,7 +4,7 @@ import { ChevronDown, HardDrive, Loader2 } from 'lucide-react'
 import { getModels, startServer, stopServer } from '@/lib/api'
 import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
-import { formatBytes, cn } from '@/lib/utils'
+import { formatBytes, cn, describeError } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 export function ModelSelector() {
@@ -33,7 +33,10 @@ export function ModelSelector() {
       setActiveModel(modelId)
       toast.success('Model loading...')
     },
-    onError: () => toast.error('Failed to start model'),
+    onError: (err) => {
+      const detail = describeError(err)
+      toast.error(detail ? `Failed to start model: ${detail}` : 'Failed to start model')
+    },
   })
 
   const stopMutation = useMutation({

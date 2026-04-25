@@ -35,7 +35,7 @@ LlamaStudio is designed to feel like a serious local AI desktop product, not a r
 - Clean brutalist UI with strong defaults
 - Built-in desktop backend, so users do not need to run a separate service
 - Dependency detection and onboarding for `llama-server`
-- Windows and Linux desktop releases
+- Cross-platform desktop releases (Linux, Windows, macOS)
 - Update notifications for new GitHub releases
 - Local chat, markdown rendering, templates, analytics, and model management
 
@@ -55,6 +55,10 @@ Download the latest installer from the [Releases page](https://github.com/KM-Ale
 
 - `.exe` for the easiest installer flow
 - `.msi` for enterprise or managed environments
+
+### macOS
+
+Download the latest `.dmg` from the [Releases page](https://github.com/KM-Alee/llama-studio/releases).
 
 ## First Run
 
@@ -84,6 +88,12 @@ GitHub Actions builds release artifacts for:
 
 - Windows: `NSIS`, `MSI`
 - Linux: `AppImage`, `deb`, `rpm`
+- macOS (Apple Silicon runners): `dmg`
+
+Each release also publishes:
+
+- Full Tauri bundle archives per platform (`llamastudio-tauri-bundle-<platform>.tgz`) with SHA256 sidecars
+- Standalone backend archives and SHA256 files for Linux and Windows
 
 The release workflow is also prepared for:
 
@@ -108,12 +118,14 @@ For best Windows trust results, use an EV certificate or Azure Trusted Signing.
 
 ```bash
 cd src-frontend
-npm install
-npm run lint
-npm test
-npm run build
+pnpm install --frozen-lockfile
+pnpm lint
+pnpm test
+pnpm build
 
 cd ../src-backend
+cargo check
+cargo clippy -- -D warnings
 cargo test
 ```
 
@@ -132,8 +144,22 @@ scripts/              Installer helpers
 These checks should pass before release:
 
 ```bash
-cd src-frontend && npm run lint && npm test && npm run build
-cd ../src-backend && cargo test
+cd src-frontend && pnpm install --frozen-lockfile && pnpm tsc --noEmit && pnpm lint && pnpm test && pnpm build
+cd ../src-backend && cargo check && cargo clippy -- -D warnings && cargo test
+cd ../src-frontend && CI=true NO_STRIP=1 pnpm exec tauri build --ci --no-sign -b deb -c '{"bundle":{"createUpdaterArtifacts":false}}'
+```
+
+## Trigger Full GitHub Release
+
+The full multi-platform release runs on GitHub Actions and publishes all artifacts to one GitHub release tag:
+
+```bash
+# create and push a release tag
+git tag v0.1.0
+git push origin v0.1.0
+
+# or re-run release workflow for an existing tag
+gh workflow run release.yml -f tag=v0.1.0
 ```
 
 ## License

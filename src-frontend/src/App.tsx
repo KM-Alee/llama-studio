@@ -1,6 +1,7 @@
 import { Routes, Route, Link } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { UpdateNotice } from '@/components/UpdateNotice'
+import { DesktopUiPrefsSync } from '@/lib/platform/DesktopUiPrefsSync'
 import { ChatPage } from '@/pages/ChatPage'
 import { ModelAnalyticsPage } from '@/pages/ModelAnalyticsPage'
 import { ModelsPage } from '@/pages/ModelsPage'
@@ -37,6 +38,7 @@ function NotFoundPage() {
 export default function App() {
   return (
     <>
+      <DesktopUiPrefsSync />
       <UpdateNotice />
       <Routes>
         <Route element={<Layout />}>

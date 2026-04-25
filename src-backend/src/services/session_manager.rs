@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 
+use crate::app_core::conversations::{AddMessage, CreateConversation};
 use crate::db::Database;
-use crate::routes::conversations::{AddMessage, CreateConversation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conversation {

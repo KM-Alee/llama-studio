@@ -58,7 +58,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -78,3 +78,72 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+  tauri-smoke:
+    name: Tauri smoke (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            runner: ubuntu-22.04
+            smoke_bundle: deb
+          - name: windows
+            runner: windows-2022
+            smoke_bundle: nsis
+          - name: macos
+            runner: macos-14
+            smoke_bundle: dmg
+
+    defaults:
+      run:
+        working-directory: src-frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: src-frontend/pnpm-lock.yaml
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-backend -> target
+            src-frontend/src-tauri -> target
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            xdg-utils
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri (PR smoke, --no-sign, single bundle)
+        env:
+          CI: 'true'
+          NO_STRIP: '1'
+          TAURI_BUNDLER_DMG_IGNORE_CI: ${{ runner.os == 'macOS' && 'true' || 'false' }}
+        run: pnpm exec tauri build --ci --no-sign -b ${{ matrix.smoke_bundle }} -c '{"bundle":{"createUpdaterArtifacts":false}}'

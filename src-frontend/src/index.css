@@ -5,23 +5,26 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary: #c2553a;
-  --color-primary-hover: #a8472f;
-  --color-primary-light: #d47060;
-  --color-surface: #fffde0;
-  --color-surface-dim: #f7f3cc;
-  --color-surface-hover: #efe9b9;
-  --color-border: #9f9579;
-  --color-text: #181816;
-  --color-text-secondary: #46463f;
-  --color-text-muted: #82827a;
-  --color-success: #2e6e44;
-  --color-warning: #9a7200;
-  --color-error: #b83232;
-  --color-user-bubble: #e1d8bc;
+  --color-primary: #cb5d3f;
+  --color-primary-hover: #af4a2f;
+  --color-primary-light: #df8975;
+  --color-surface: #fffdf6;
+  --color-surface-dim: #f9f4e8;
+  --color-surface-hover: #f2ead9;
+  --color-border: #8f8064;
+  --color-text: #18150f;
+  --color-text-secondary: #3f372a;
+  --color-text-muted: #756b5b;
+  --color-success: #2f6d45;
+  --color-warning: #9f6f00;
+  --color-error: #b73434;
+  --color-user-bubble: #f3e8d2;
   --color-assistant-bubble: transparent;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --shadow-offset-sm: 2px;
+  --shadow-offset-md: 4px;
+  --shadow-offset-lg: 6px;
 }
 
 .dark {
@@ -164,7 +167,13 @@ button, a, input, select, textarea {
 .ui-panel {
   border: 2px solid var(--color-border);
   background: var(--color-surface);
-  box-shadow: 4px 4px 0 var(--color-border);
+  box-shadow: var(--shadow-offset-md) var(--shadow-offset-md) 0 var(--color-border);
+}
+
+.ui-card {
+  border: 2px solid var(--color-border);
+  background: var(--color-surface-dim);
+  box-shadow: var(--shadow-offset-sm) var(--shadow-offset-sm) 0 color-mix(in srgb, var(--color-border) 88%, transparent);
 }
 
 .ui-button,
@@ -176,6 +185,7 @@ button, a, input, select, textarea {
   border: 2px solid transparent;
   font-weight: 600;
   border-radius: 0;
+  transform: translate(0, 0);
 }
 
 .ui-button {
@@ -187,6 +197,7 @@ button, a, input, select, textarea {
   border-color: var(--color-border);
   background: var(--color-surface);
   color: var(--color-text-secondary);
+  box-shadow: var(--shadow-offset-sm) var(--shadow-offset-sm) 0 color-mix(in srgb, var(--color-border) 65%, transparent);
 }
 
 .ui-button-secondary:hover {
@@ -198,7 +209,8 @@ button, a, input, select, textarea {
   border-color: var(--color-primary);
   background: var(--color-primary);
   color: #fff;
-  box-shadow: 3px 3px 0 color-mix(in srgb, var(--color-primary) 32%, var(--color-border));
+  box-shadow: var(--shadow-offset-sm) var(--shadow-offset-sm) 0
+    color-mix(in srgb, var(--color-primary) 32%, var(--color-border));
 }
 
 .ui-button-primary:hover {
@@ -209,7 +221,8 @@ button, a, input, select, textarea {
   border-color: var(--color-error);
   background: var(--color-error);
   color: #fff;
-  box-shadow: 3px 3px 0 color-mix(in srgb, var(--color-error) 35%, var(--color-border));
+  box-shadow: var(--shadow-offset-sm) var(--shadow-offset-sm) 0
+    color-mix(in srgb, var(--color-error) 35%, var(--color-border));
 }
 
 .ui-button-danger:hover {
@@ -220,14 +233,21 @@ button, a, input, select, textarea {
   width: 2.25rem;
   height: 2.25rem;
   color: var(--color-text-muted);
-  background: transparent;
-  box-shadow: none;
+  border-color: var(--color-border);
+  background: var(--color-surface-dim);
+  box-shadow: var(--shadow-offset-sm) var(--shadow-offset-sm) 0
+    color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
 .ui-icon-button:hover {
-  border-color: var(--color-border);
   background: var(--color-surface-hover);
   color: var(--color-text);
+}
+
+.ui-button:active:not(:disabled),
+.ui-icon-button:active:not(:disabled) {
+  transform: translate(var(--shadow-offset-sm), var(--shadow-offset-sm));
+  box-shadow: none;
 }
 
 .ui-input {
@@ -251,6 +271,20 @@ button, a, input, select, textarea {
 
 .ui-input-soft {
   background: var(--color-surface-dim);
+}
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 0.2rem 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
 }
 
 /* ─── Chat Markdown ─────────────────────────────────────── */

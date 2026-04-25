@@ -1,9 +1,7 @@
 import { relaunch } from '@tauri-apps/plugin-process'
 import { check } from '@tauri-apps/plugin-updater'
 
-function isDesktopRuntime() {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-}
+import { isDesktopRuntime } from '@/lib/platform/env'
 
 export interface UpdateResult {
   version: string

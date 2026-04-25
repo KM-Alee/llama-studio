@@ -9,7 +9,7 @@ use crate::services::preset_manager::Preset;
 use crate::services::session_manager::{Conversation, Message, MessageAttachment};
 
 /// Current schema version for migration tracking.
-const SCHEMA_VERSION: u32 = 2;
+const SCHEMA_VERSION: u32 = 3;
 
 fn estimate_tokens_from_content(content: &str) -> u64 {
     ((content.chars().count() as f64) / 4.0).ceil() as u64
@@ -155,7 +155,7 @@ impl Database {
                 INSERT INTO schema_version (version) VALUES (2);
                 "
             )?;
-            current = SCHEMA_VERSION;
+            current = 2;
             tracing::info!("Database migrated to schema version 2");
         }
 
@@ -167,14 +167,65 @@ impl Database {
             }
 
             conn.execute("DELETE FROM schema_version", [])?;
+            conn.execute("INSERT INTO schema_version (version) VALUES (?1)", [2])?;
+            tracing::info!("Database migrated to schema version 2");
+            current = 2;
+        }
+
+        if current < 3 {
+            conn.execute_batch(
+                "
+                CREATE TABLE IF NOT EXISTS desktop_ui_state (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    app_prefs_json TEXT NOT NULL DEFAULT '{}',
+                    custom_templates_json TEXT NOT NULL DEFAULT '[]'
+                );
+                INSERT OR IGNORE INTO desktop_ui_state (id, app_prefs_json, custom_templates_json)
+                    VALUES (1, '{}', '[]');
+                ",
+            )?;
+            conn.execute("DELETE FROM schema_version", [])?;
             conn.execute(
                 "INSERT INTO schema_version (version) VALUES (?1)",
                 [SCHEMA_VERSION],
             )?;
-            tracing::info!("Database migrated to schema version 2");
+            tracing::info!("Database migrated to schema version 3 (desktop UI state)");
         }
 
         tracing::info!(version = SCHEMA_VERSION, "Database schema is up to date");
+        Ok(())
+    }
+
+    /// Durable UI preferences for the native desktop shell (not browser localStorage).
+    pub async fn get_desktop_ui_state(&self) -> Result<(Value, Value)> {
+        let conn = self.conn.lock().unwrap();
+        let (app, templates): (String, String) = conn.query_row(
+            "SELECT app_prefs_json, custom_templates_json FROM desktop_ui_state WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        let app_v =
+            serde_json::from_str(&app).unwrap_or_else(|_| Value::Object(Default::default()));
+        let templates_v =
+            serde_json::from_str(&templates).unwrap_or_else(|_| Value::Array(Default::default()));
+        Ok((app_v, templates_v))
+    }
+
+    pub async fn set_desktop_ui_app_prefs(&self, prefs: &Value) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE desktop_ui_state SET app_prefs_json = ?1 WHERE id = 1",
+            [prefs.to_string()],
+        )?;
+        Ok(())
+    }
+
+    pub async fn set_desktop_ui_custom_templates(&self, templates: &Value) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE desktop_ui_state SET custom_templates_json = ?1 WHERE id = 1",
+            [templates.to_string()],
+        )?;
         Ok(())
     }
 

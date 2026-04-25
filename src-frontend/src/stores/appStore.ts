@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware'
+import { isDesktopRuntime } from '@/lib/platform/env'
 
 export type Profile = 'normal' | 'advanced'
 export type Theme = 'light' | 'dark' | 'system'
@@ -26,6 +27,10 @@ const APP_STORAGE_KEY = 'llamastudio-app'
 const LEGACY_APP_STORAGE_KEY = 'ai-studio-app'
 
 const appStorage = createJSONStorage(() => {
+  if (isDesktopRuntime()) {
+    // Native desktop: app prefs are loaded from SQLite via bootstrap + sync (see `desktopUiBootstrap.ts`).
+    return noopStorage
+  }
   if (
     typeof window === 'undefined' ||
     !window.localStorage ||

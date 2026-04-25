@@ -22,3 +22,14 @@ export function formatDate(dateString: string): string {
 export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(' ')
 }
+
+/** Tauri `invoke` and fetch failures may be `Error`, plain string, or other shapes. */
+export function describeError(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
+}

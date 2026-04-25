@@ -44,9 +44,10 @@ import {
   type HuggingFaceModel,
   type HuggingFaceFile,
 } from '@/lib/api'
+import { isDesktopRuntime } from '@/lib/platform/env'
 import { useModelStore } from '@/stores/modelStore'
 import { useServerStore } from '@/stores/serverStore'
-import { formatBytes, cn, formatDate } from '@/lib/utils'
+import { formatBytes, cn, formatDate, describeError } from '@/lib/utils'
 import { InputModal, ConfirmModal } from '@/components/ui/Modal'
 import toast from 'react-hot-toast'
 
@@ -97,7 +98,7 @@ export function ModelsPage() {
   const { data: downloadsData } = useQuery({
     queryKey: ['downloads'],
     queryFn: getDownloads,
-    refetchInterval: 2000,
+    refetchInterval: isDesktopRuntime() ? false : 2000,
   })
 
   const { data: hfResults, isFetching: hfSearching } = useQuery({
@@ -118,7 +119,10 @@ export function ModelsPage() {
   const startMutation = useMutation({
     mutationFn: (modelId: string) => startServer(modelId),
     onSuccess: () => toast.success('Model loading...'),
-    onError: () => toast.error('Failed to start server'),
+    onError: (err) => {
+      const detail = describeError(err)
+      toast.error(detail ? `Failed to start model: ${detail}` : 'Failed to start model')
+    },
   })
 
   const stopMutation = useMutation({
@@ -188,7 +192,7 @@ export function ModelsPage() {
                 )
               }
               disabled={models.length === 0}
-              className="flex items-center gap-2 px-4 py-2  border border-border text-text-secondary hover:bg-surface-hover text-sm font-medium transition-colors disabled:opacity-40"
+              className="ui-button ui-button-secondary disabled:opacity-40"
             >
               <Activity className="w-4 h-4" />
               Analytics
@@ -196,7 +200,7 @@ export function ModelsPage() {
             {serverStatus === 'running' && (
               <button
                 onClick={() => stopMutation.mutate()}
-                className="flex items-center gap-2 px-4 py-2  text-error hover:bg-error/10 text-sm font-medium transition-colors"
+                className="ui-button border-2 border-error bg-surface text-error hover:bg-error/10"
               >
                 <Square className="w-3.5 h-3.5" />
                 Stop Server
@@ -204,7 +208,7 @@ export function ModelsPage() {
             )}
             <button
               onClick={() => setImportModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2  border border-border text-text-secondary hover:bg-surface-hover text-sm font-medium transition-colors"
+              className="ui-button ui-button-secondary"
             >
               <FolderOpen className="w-4 h-4" />
               Import
@@ -212,7 +216,7 @@ export function ModelsPage() {
             <button
               onClick={() => scanMutation.mutate()}
               disabled={scanMutation.isPending}
-              className="flex items-center gap-2 px-4 py-2  bg-primary text-white hover:bg-primary-hover text-sm font-medium transition-colors disabled:opacity-50"
+              className="ui-button ui-button-primary disabled:opacity-50"
             >
               <Scan className="w-4 h-4" />
               {scanMutation.isPending ? 'Scanning...' : 'Scan'}
@@ -221,14 +225,14 @@ export function ModelsPage() {
         </div>
 
         {/* Tabs + View Toggle */}
-        <div className="flex items-center justify-between mb-5 border-b border-border">
+        <div className="mb-5 flex items-center justify-between border-b-2 border-border">
           <div className="flex gap-0">
             {(['local', 'browse', 'downloads'] as Tab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  'px-4 py-2.5 text-sm font-medium transition-colors capitalize border-b-2 -mb-px',
+                  'border-b-2 -mb-px px-4 py-2.5 text-sm font-semibold uppercase tracking-[0.08em] transition-colors',
                   activeTab === tab
                     ? 'border-primary text-text'
                     : 'border-transparent text-text-muted hover:text-text-secondary',
@@ -243,11 +247,11 @@ export function ModelsPage() {
             ))}
           </div>
           {activeTab === 'local' && (
-            <div className="flex gap-1 mb-1">
+            <div className="mb-1 flex gap-1">
               <button
                 onClick={() => setViewMode('list')}
                 className={cn(
-                  'p-1.5  transition-colors',
+                  'ui-icon-button h-8 w-8 transition-colors',
                   viewMode === 'list'
                     ? 'text-text bg-surface-hover'
                     : 'text-text-muted hover:text-text-secondary',
@@ -258,7 +262,7 @@ export function ModelsPage() {
               <button
                 onClick={() => setViewMode('grid')}
                 className={cn(
-                  'p-1.5  transition-colors',
+                  'ui-icon-button h-8 w-8 transition-colors',
                   viewMode === 'grid'
                     ? 'text-text bg-surface-hover'
                     : 'text-text-muted hover:text-text-secondary',
@@ -278,7 +282,7 @@ export function ModelsPage() {
           className="relative min-h-[400px]"
         >
           {dragOver && (
-            <div className="absolute inset-0 border-2 border-dashed border-primary/40 bg-primary/5  z-10 flex items-center justify-center">
+            <div className="absolute inset-0 z-10 flex items-center justify-center border-2 border-dashed border-primary/40 bg-primary/5">
               <div className="text-center">
                 <FileDown className="w-10 h-10 text-primary/60 mx-auto mb-2" />
                 <p className="text-sm font-medium text-primary">Drop .gguf files here</p>
@@ -341,7 +345,7 @@ export function ModelsPage() {
           {/* HuggingFace Browse Tab */}
           {activeTab === 'browse' && (
             <div>
-              <div className="flex items-center gap-3 px-4 py-3  bg-surface-dim border border-border mb-5">
+              <div className="ui-card mb-5 flex items-center gap-3 px-4 py-3">
                 <Search className="w-4 h-4 text-text-muted" />
                 <input
                   type="text"
@@ -469,7 +473,12 @@ function HuggingFaceModelCard({
 }) {
   const queryClient = useQueryClient()
 
-  const { data: filesData, isLoading: filesLoading } = useQuery({
+  const {
+    data: filesData,
+    isLoading: filesLoading,
+    isError: filesError,
+    error: filesQueryError,
+  } = useQuery({
     queryKey: ['hf-files', model.id],
     queryFn: () => getHuggingFaceFiles(model.id),
     enabled: isExpanded,
@@ -491,12 +500,13 @@ function HuggingFaceModelCard({
   const files = filesData?.files ?? []
   const ggufCount = filesData?.gguf_count ?? files.length
   const totalSize = filesData?.total_size_bytes ?? 0
+  const filesListErrorText = filesError ? describeError(filesQueryError) : ''
   const visibleTags = model.tags
     .filter((tag) => !['gguf', 'text-generation', 'conversational'].includes(tag))
     .slice(0, 4)
 
   return (
-    <div className=" border border-border bg-surface-dim overflow-hidden transition-colors hover:border-border/80">
+    <div className="ui-card overflow-hidden transition-colors hover:border-text-muted">
       {/* Model header — always visible */}
       <div
         className="flex items-center gap-4 p-4 cursor-pointer hover:bg-surface-hover/50 transition-colors"
@@ -538,7 +548,7 @@ function HuggingFaceModelCard({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1.5 px-3 py-1.5  bg-surface border border-border text-text-secondary hover:text-text text-xs font-medium transition-colors"
+            className="ui-button ui-button-secondary min-h-0 px-3 py-1.5 text-xs"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             View
@@ -555,10 +565,10 @@ function HuggingFaceModelCard({
       {isExpanded && (
         <div className="border-t border-border bg-surface">
           <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 text-xs text-text-muted">
-            <span className=" bg-surface-dim px-2 py-1 font-medium text-text-secondary">
+            <span className="ui-chip">
               {ggufCount} GGUF files
             </span>
-            <span className=" bg-surface-dim px-2 py-1 font-medium text-text-secondary">
+            <span className="ui-chip">
               {totalSize > 0 ? formatBytes(totalSize) : 'Size unavailable'} total
             </span>
           </div>
@@ -566,6 +576,15 @@ function HuggingFaceModelCard({
             <div className="p-4 text-center text-sm text-text-muted">
               <div className="w-5 h-5 border-2 border-primary/30 border-t-primary  animate-spin mx-auto mb-2" />
               Loading files...
+            </div>
+          ) : filesError ? (
+            <div className="p-4 text-center text-sm text-error">
+              Could not load file list from Hugging Face.
+              {filesListErrorText ? (
+                <span className="mt-2 block font-mono text-xs text-text-muted">
+                  {filesListErrorText}
+                </span>
+              ) : null}
             </div>
           ) : files.length === 0 ? (
             <div className="p-4 text-center text-sm text-text-muted">
@@ -586,7 +605,7 @@ function HuggingFaceModelCard({
                       <div className="flex items-center gap-2 text-xs text-text-muted mt-0.5">
                         <span>{formatBytes(file.size)}</span>
                         {quant && (
-                          <span className="px-1.5 py-0.5 rounded bg-surface-dim text-text-secondary text-[10px] font-semibold">
+                          <span className="ui-chip px-1.5 py-0.5 text-[10px]">
                             {quant}
                           </span>
                         )}
@@ -594,7 +613,7 @@ function HuggingFaceModelCard({
                     </div>
                     <button
                       onClick={() => handleDownload(file)}
-                      className="flex items-center gap-1.5 px-3 py-1.5  bg-primary text-white hover:bg-primary-hover text-xs font-medium transition-colors shrink-0"
+                      className="ui-button ui-button-primary min-h-0 shrink-0 px-3 py-1.5 text-xs"
                     >
                       <Download className="w-3.5 h-3.5" />
                       Download
@@ -628,10 +647,7 @@ function ModelCard({
   return (
     <div
       onClick={onSelect}
-      className={cn(
-        'p-4  border cursor-pointer transition-colors',
-        isActive ? 'border-success/50 bg-success/5' : 'border-border hover:bg-surface-hover',
-      )}
+      className={cn('ui-card cursor-pointer p-4 transition-colors', isActive ? 'border-success/60 bg-success/5' : 'hover:bg-surface-hover')}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="w-9 h-9  bg-surface-dim flex items-center justify-center">
@@ -656,7 +672,7 @@ function ModelCard({
             onLoad()
           }}
           disabled={serverStatus !== 'stopped'}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2  bg-success/10 text-success hover:bg-success/20 text-sm font-medium transition-colors disabled:opacity-30"
+          className="ui-button flex-1 border-2 border-success bg-success/10 py-2 text-sm text-success hover:bg-success/20 disabled:opacity-30"
         >
           <Play className="w-3.5 h-3.5" />
           Load
@@ -666,7 +682,7 @@ function ModelCard({
             e.stopPropagation()
             onDelete()
           }}
-          className="p-2  text-text-muted hover:text-error hover:bg-error/10 transition-colors"
+          className="ui-icon-button h-9 w-9 hover:bg-error/10 hover:text-error"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -694,8 +710,8 @@ function ModelRow({
     <div
       onClick={onSelect}
       className={cn(
-        'flex items-center gap-3 p-3.5  border cursor-pointer transition-colors group',
-        isActive ? 'border-success/50 bg-success/5' : 'border-border hover:bg-surface-hover',
+        'group flex cursor-pointer items-center gap-3 border-2 border-border bg-surface-dim p-3.5 transition-colors',
+        isActive ? 'border-success/60 bg-success/5' : 'hover:bg-surface-hover',
       )}
     >
       <div className="w-9 h-9  bg-surface-dim flex items-center justify-center shrink-0">
@@ -723,7 +739,7 @@ function ModelRow({
             onLoad()
           }}
           disabled={serverStatus !== 'stopped'}
-          className="flex items-center gap-1.5 px-3 py-1.5  bg-success/10 text-success hover:bg-success/20 text-sm font-medium transition-colors disabled:opacity-30"
+          className="ui-button border-2 border-success bg-success/10 px-3 py-1.5 text-sm text-success hover:bg-success/20 disabled:opacity-30"
         >
           <Play className="w-3.5 h-3.5" />
           Load
@@ -733,7 +749,7 @@ function ModelRow({
             e.stopPropagation()
             onDelete()
           }}
-          className="p-1.5  text-text-muted hover:text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-all"
+          className="ui-icon-button h-8 w-8 opacity-0 transition-all group-hover:opacity-100 hover:bg-error/10 hover:text-error"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
@@ -772,10 +788,10 @@ function ModelDetailPanel({
   const analytics = analyticsData?.analytics
 
   return (
-    <div className="w-[24rem] border-l border-border bg-surface p-5 overflow-y-auto shrink-0">
+    <div className="w-[24rem] shrink-0 overflow-y-auto border-l-2 border-border bg-surface p-5">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-sm font-bold text-text">Details</h2>
-        <button onClick={onClose} className="p-1.5  hover:bg-surface-hover text-text-muted">
+        <button onClick={onClose} className="ui-icon-button h-8 w-8">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -814,7 +830,7 @@ function ModelDetailPanel({
         )}
         <DetailField label="Added" value={new Date(resolvedModel.added_at).toLocaleDateString()} />
 
-        <div className=" border border-border bg-surface-dim p-4">
+        <div className="ui-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
               llama.cpp Inspection
@@ -849,7 +865,7 @@ function ModelDetailPanel({
                   }
                 />
               </div>
-              <div className=" bg-surface px-3 py-2 text-[11px] text-text-muted">
+              <div className="border border-border bg-surface px-3 py-2 text-[11px] text-text-muted">
                 <div className="font-semibold text-text-secondary">Command</div>
                 <div className="mt-1 break-all font-mono">{inspection.command}</div>
               </div>
@@ -865,7 +881,7 @@ function ModelDetailPanel({
         </div>
 
         {analytics && (
-          <div className=" border border-border bg-surface-dim p-4">
+          <div className="ui-card p-4">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-text-muted">
               Usage Snapshot
             </h3>
@@ -901,7 +917,7 @@ function ModelDetailPanel({
         <div className="pt-4 border-t border-border space-y-2">
           <button
             onClick={onOpenAnalytics}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5  border border-border text-text hover:bg-surface-hover text-sm font-semibold transition-colors"
+            className="ui-button ui-button-secondary w-full py-2.5 text-sm"
           >
             <Activity className="w-4 h-4" />
             Open Analytics
@@ -909,7 +925,7 @@ function ModelDetailPanel({
           <button
             onClick={onLoad}
             disabled={serverStatus !== 'stopped' || isActive}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5  bg-success text-white hover:bg-success/90 text-sm font-semibold transition-colors disabled:opacity-30"
+            className="ui-button w-full border-2 border-success bg-success py-2.5 text-sm text-white hover:bg-success/90 disabled:opacity-30"
           >
             <Play className="w-4 h-4" />
             {isActive ? 'Active' : 'Load Model'}
@@ -922,7 +938,7 @@ function ModelDetailPanel({
 
 function InfoPill({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className=" bg-surface px-3 py-2 text-text-secondary">
+    <div className="border border-border bg-surface px-3 py-2 text-text-secondary">
       <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-text-muted">
         {icon}
         <span>{label}</span>
@@ -948,7 +964,7 @@ function DownloadRow({ download }: { download: DownloadInfo }) {
   const progress = totalBytes > 0 ? Math.round((download.downloaded_bytes / totalBytes) * 100) : 0
 
   return (
-    <div className="flex items-center gap-3 p-4  border border-border">
+    <div className="ui-card flex items-center gap-3 p-4">
       <div className="w-10 h-10  bg-surface-dim flex items-center justify-center shrink-0">
         {download.status === 'failed' ? (
           <AlertCircle className="w-5 h-5 text-error" />
@@ -988,7 +1004,7 @@ function DownloadRow({ download }: { download: DownloadInfo }) {
       {(download.status === 'downloading' || download.status === 'queued') && (
         <button
           onClick={() => cancelDownload(download.id)}
-          className="p-1.5  text-text-muted hover:text-error hover:bg-error/10 transition-colors shrink-0"
+          className="ui-icon-button h-8 w-8 shrink-0 hover:bg-error/10 hover:text-error"
         >
           <X className="w-4 h-4" />
         </button>

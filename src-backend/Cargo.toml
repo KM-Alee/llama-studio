@@ -1,6 +1,6 @@
 [package]
 name = "llamastudio-backend"
-version = "1.0.0"
+version = "0.1.0"
 edition = "2024"
 
 [dependencies]
@@ -22,7 +22,14 @@ serde_json = "1"
 rusqlite = { version = "0.33", features = ["bundled"] }
 
 # HTTP client (for proxying to llama.cpp)
-reqwest = { version = "0.12", features = ["json", "stream"] }
+# rustls + bundled Mozilla roots: works when the host has no usable OpenSSL CA bundle
+# (common with some AppImage / minimal sandboxes). Desktop and server both use this client.
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "stream",
+    "rustls-tls-webpki-roots",
+] }
+bytes = "1"
 
 # Async streams
 futures = "0.3"

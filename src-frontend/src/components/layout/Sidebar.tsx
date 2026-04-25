@@ -139,7 +139,7 @@ export function Sidebar() {
           New Chat
         </button>
 
-        <div className="flex items-center gap-2 border border-border bg-surface px-3 py-2 text-sm">
+        <div className="flex items-center gap-2 border-2 border-border bg-surface px-3 py-2 text-sm">
           <Search className="w-3.5 h-3.5 text-text-muted shrink-0" />
           <input
             type="text"
@@ -244,7 +244,7 @@ export function Sidebar() {
       </div>
 
       {/* Bottom nav */}
-      <div className="border-t-2 border-border">
+      <div className="border-t-2 border-border bg-surface">
         {navItems.map(({ path, label, icon: Icon, match }) => {
           const isActive = match ? match(location.pathname) : location.pathname === path
           return (

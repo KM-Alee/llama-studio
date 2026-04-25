@@ -5,36 +5,20 @@
 //! instance — the server lifecycle endpoints are tested for correct
 //! status transitions and error responses.
 
-use axum::{
-    Router,
-    body::Body,
-    http::{Request, StatusCode},
-    routing::get,
-};
+use axum::{Router, body::Body, http::Request, http::StatusCode};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
-// Re-use the application's modules
-use llamastudio_backend::routes;
+use llamastudio_backend::app;
 use llamastudio_backend::state::AppState;
 
-/// Build the full application router (mirrors main.rs) for test use.
+/// Build the full application router (same graph as [`app::build_router`] / production).
 async fn build_test_app() -> Router {
     let state = AppState::new_in_memory()
         .await
         .expect("Failed to initialize test AppState");
 
-    Router::new()
-        .route("/api/v1/health", get(routes::health::health_check))
-        .nest("/api/v1/models", routes::models::router())
-        .nest("/api/v1/server", routes::server::router())
-        .nest("/api/v1/chat", routes::chat::router())
-        .nest("/api/v1/conversations", routes::conversations::router())
-        .nest("/api/v1/presets", routes::presets::router())
-        .nest("/api/v1/config", routes::config::router())
-        .nest("/api/v1/downloads", routes::downloads::router())
-        .nest("/api/v1/huggingface", routes::huggingface::router())
-        .with_state(state)
+    app::build_router(state, 6868)
 }
 
 /// Helper: send a GET request and return (status, body).
@@ -113,7 +97,19 @@ async fn health_returns_ok() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "ok");
     assert_eq!(body["name"], "LlamaStudio");
-    assert!(body["version"].is_string());
+    assert_eq!(body["version"], "0.1.0");
+}
+
+#[tokio::test]
+async fn websocket_route_is_registered() {
+    let app = build_test_app().await;
+    let req = Request::builder().uri("/api/v1/ws").body(Body::empty()).unwrap();
+    let response = app.clone().oneshot(req).await.unwrap();
+    assert_ne!(
+        response.status(),
+        StatusCode::NOT_FOUND,
+        "WS route should exist (plain GET may reject upgrade, but must not 404)"
+    );
 }
 
 // === Server status ===
@@ -392,6 +388,24 @@ async fn config_update_and_read_back() {
     assert_eq!(status, StatusCode::OK);
     // The config store merges, so our values should be present
     assert!(body.is_object());
+}
+
+#[tokio::test]
+async fn config_update_strips_obsolete_app_port() {
+    let app = build_test_app().await;
+
+    let (status, _) = put_json(
+        &app,
+        "/api/v1/config",
+        json!({ "app_port": 9999, "context_size": 4097 }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = get_json(&app, "/api/v1/config").await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["context_size"], 4097);
+    assert!(body.get("app_port").is_none());
 }
 
 // === Phase 5: Server Logs ===
@@ -692,15 +706,18 @@ async fn delete_message_removes_it_from_conversation() {
 // === Phase 8: Config Validation ===
 
 #[tokio::test]
-async fn config_rejects_invalid_port() {
+async fn config_rejects_invalid_llama_server_port() {
     let app = build_test_app().await;
 
     // Port 80 is below the 1024 threshold.
-    let (status, body) = put_json(&app, "/api/v1/config", json!({ "app_port": 80 })).await;
+    let (status, body) = put_json(&app, "/api/v1/config", json!({ "llama_server_port": 80 })).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert!(
-        body["error"].as_str().unwrap_or("").contains("app_port"),
-        "expected validation message about app_port"
+        body["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("llama_server_port"),
+        "expected validation message about llama_server_port"
     );
 }
 
@@ -719,18 +736,17 @@ async fn config_rejects_zero_context_size() {
 }
 
 #[tokio::test]
-async fn config_rejects_same_ports() {
+async fn config_rejects_empty_models_directory() {
     let app = build_test_app().await;
 
-    // Both ports identical → validation must fail.
-    let (status, body) = put_json(
-        &app,
-        "/api/v1/config",
-        json!({ "app_port": 6868, "llama_server_port": 6868 }),
-    )
-    .await;
+    let (status, body) = put_json(&app, "/api/v1/config", json!({ "models_directory": "" })).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert!(body["error"].as_str().unwrap_or("").contains("different"));
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("models_directory")
+    );
 }
 
 // === Phase 9: Recursive Model Scan ===

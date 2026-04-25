@@ -36,8 +36,7 @@ pub fn detect_runtime_dependencies(configured_server_path: &str) -> Vec<RuntimeD
             installed: llama_server.is_some(),
             resolved_path: llama_server.map(|path| path.display().to_string()),
             install_url: "https://github.com/ggerganov/llama.cpp/releases",
-            help_text:
-                "Required to run local inference. Download the official llama.cpp release for your platform, then point Binary Path to llama-server.",
+            help_text: "Required to run local inference. Download the official llama.cpp release for your platform, then point Binary Path to llama-server.",
         },
         RuntimeDependencyStatus {
             key: "llama_cli",
@@ -46,8 +45,7 @@ pub fn detect_runtime_dependencies(configured_server_path: &str) -> Vec<RuntimeD
             installed: llama_cli.is_some(),
             resolved_path: llama_cli.map(|path| path.display().to_string()),
             install_url: "https://github.com/ggerganov/llama.cpp/releases",
-            help_text:
-                "Optional but recommended. LlamaStudio uses llama-cli for local model inspection and metadata extraction.",
+            help_text: "Optional but recommended. LlamaStudio uses llama-cli for local model inspection and metadata extraction.",
         },
         RuntimeDependencyStatus {
             key: "huggingface_cli",
@@ -56,8 +54,7 @@ pub fn detect_runtime_dependencies(configured_server_path: &str) -> Vec<RuntimeD
             installed: hugging_face_cli.is_some(),
             resolved_path: hugging_face_cli.map(|path| path.display().to_string()),
             install_url: "https://huggingface.co/docs/huggingface_hub/guides/cli",
-            help_text:
-                "Optional only. LlamaStudio can browse and download models directly, so the Hugging Face CLI is not required.",
+            help_text: "Optional only. LlamaStudio can browse and download models directly, so the Hugging Face CLI is not required.",
         },
     ]
 }

@@ -142,6 +142,22 @@ async fn run_download(
         .build()?;
 
     let response = client.get(&url).send().await?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        let msg = format!(
+            "HTTP {}: {}",
+            status,
+            body.chars().take(512).collect::<String>()
+        );
+        let mut dls = downloads.lock().await;
+        if let Some(dl) = dls.get_mut(&id) {
+            dl.status = DownloadStatus::Failed;
+            dl.error = Some(msg.clone());
+            let _ = tx.send(dl.clone());
+        }
+        anyhow::bail!(msg);
+    }
 
     let total = response.content_length().unwrap_or(0);
 
@@ -175,9 +191,18 @@ async fn run_download(
             }
         }
 
-        let chunk = chunk?;
+        let chunk = match chunk {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = tokio::fs::remove_file(&dest).await;
+                return Err(e.into());
+            }
+        };
         use tokio::io::AsyncWriteExt;
-        file.write_all(&chunk).await?;
+        if let Err(e) = file.write_all(&chunk).await {
+            let _ = tokio::fs::remove_file(&dest).await;
+            return Err(e.into());
+        }
         downloaded += chunk.len() as u64;
 
         if downloaded - last_reported >= report_interval_bytes || downloaded == total {
