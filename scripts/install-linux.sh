@@ -333,13 +333,21 @@ install_appimage() {
 
   cat > "${BIN_DIR}/llamastudio" <<EOF
 #!/usr/bin/env bash
-exec "${appimage_path}" "\$@"
+# Arch/Wayland/WebKitGTK setups can fail EGL init and render a blank window.
+# Default to safer fallbacks unless the user explicitly overrides them.
+: "\${WEBKIT_DISABLE_DMABUF_RENDERER:=1}"
+: "\${LIBGL_ALWAYS_SOFTWARE:=1}"
+exec env \
+  WEBKIT_DISABLE_DMABUF_RENDERER="\${WEBKIT_DISABLE_DMABUF_RENDERER}" \
+  LIBGL_ALWAYS_SOFTWARE="\${LIBGL_ALWAYS_SOFTWARE}" \
+  "${appimage_path}" "\$@"
 EOF
   chmod +x "${BIN_DIR}/llamastudio"
 
   local icon_line=""
   if [[ -f "${ICON_PATH}" ]]; then
-    icon_line="Icon=llamastudio"
+    # Use an absolute icon path so desktop environments do not depend on cache refresh.
+    icon_line="Icon=${ICON_PATH}"
   fi
 
   cat > "${DESKTOP_FILE_PATH}" <<EOF

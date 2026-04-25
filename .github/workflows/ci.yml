@@ -142,6 +142,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Tauri (PR smoke, --no-sign, single bundle)
+        shell: bash
         env:
           CI: 'true'
           NO_STRIP: '1'
