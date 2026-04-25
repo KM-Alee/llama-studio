@@ -167,35 +167,22 @@ jobs:
           case "${{ matrix.platform }}" in
             darwin-aarch64)
               if [ -n "$APPLE_CERTIFICATE" ]; then
-                echo "args=" >> "$GITHUB_OUTPUT"
+                echo "args=-c src-tauri/tauri.release.conf.json" >> "$GITHUB_OUTPUT"
               else
-                echo "args=--no-sign" >> "$GITHUB_OUTPUT"
+                echo "args=--no-sign -c src-tauri/tauri.release.conf.json" >> "$GITHUB_OUTPUT"
               fi
               ;;
             windows-x86_64)
               if [ -n "$WINDOWS_CERTIFICATE" ]; then
-                echo "args=" >> "$GITHUB_OUTPUT"
+                echo "args=-c src-tauri/tauri.release.conf.json" >> "$GITHUB_OUTPUT"
               else
-                echo "args=--no-sign" >> "$GITHUB_OUTPUT"
+                echo "args=--no-sign -c src-tauri/tauri.release.conf.json" >> "$GITHUB_OUTPUT"
               fi
               ;;
             *)
-              echo "args=" >> "$GITHUB_OUTPUT"
+              echo "args=-c src-tauri/tauri.release.conf.json" >> "$GITHUB_OUTPUT"
               ;;
           esac
-
-      - name: Tauri args (disable updater artifacts in CI releases)
-        id: tauri_final_args
-        shell: bash
-        run: |
-          set -euo pipefail
-          base='${{ steps.tauri_args.outputs.args }}'
-          extra='-c {"bundle":{"createUpdaterArtifacts":false}}'
-          if [ -n "$base" ]; then
-            echo "args=$base $extra" >> "$GITHUB_OUTPUT"
-          else
-            echo "args=$extra" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
@@ -238,7 +225,7 @@ jobs:
             - The desktop app bundles the LlamaStudio backend; it does not bundle the upstream `llama-server` binary. Use the installer’s llama step, *Settings → Runtime Dependencies*, or the NSIS (Windows) prompt after install to open official downloads. GPU: pick a matching `llama.cpp` release (CUDA/ROCm/Vulkan) for your system.
           releaseDraft: false
           prerelease: false
-          args: ${{ steps.tauri_final_args.outputs.args }}
+          args: ${{ steps.tauri_args.outputs.args }}
 
       - name: Checksum bundle tree and archive full bundle output
         shell: bash

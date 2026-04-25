@@ -147,4 +147,4 @@ jobs:
           CI: 'true'
           NO_STRIP: '1'
           TAURI_BUNDLER_DMG_IGNORE_CI: ${{ runner.os == 'macOS' && 'true' || 'false' }}
-        run: pnpm exec tauri build --ci --no-sign -b ${{ matrix.smoke_bundle }} -c '{"bundle":{"createUpdaterArtifacts":false}}'
+        run: pnpm exec tauri build --ci --no-sign -b ${{ matrix.smoke_bundle }} -c src-tauri/tauri.release.conf.json
