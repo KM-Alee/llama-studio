@@ -3,7 +3,7 @@
         "windows": {
             "nsis": {
                 "displayLanguageSelector": true,
-                "installerIcon": "icons/app-icon.png",
+                "installerIcon": "icons/icon.ico",
                 "sidebarImage": "nsis-assets/nsis-sidebar.bmp",
                 "headerImage": "nsis-assets/nsis-header.bmp",
                 "installerHooks": "nsis/installer-hooks.nsh",
