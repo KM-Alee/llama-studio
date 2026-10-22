@@ -1,0 +1,68 @@
+--- a/src/cli/cli.vala
++++ b/src/cli/cli.vala
+@@ -202,12 +202,13 @@
+                 foreach (var entry in installed) {
+-                    // This was intentionally omitted by Group's former raw
+-                    // directory helper, so retain the CLI listing behavior.
+-                    if (entry.directory_name == "LegacyRuntime")
++                    // Only managed releases with an ID and a tag can be used by
++                    // another CLI command. Ignore launcher/runtime directories.
++                    if (entry.directory_name == "LegacyRuntime" ||
++                        entry.provider_id == "" || entry.tag == "")
+                         continue;
+                     if (!group_found) {
+                         output.info ("\n%s:\n", group.title);
+                         group_found = true;
+                     }
+-                    output.info ("  %s\n", entry.display_title);
++                    output.info ("  %s  %s  %s\n", entry.provider_id, entry.tag, entry.display_title);
+                     found = true;
+                 }
+--- a/tests/cli_test.vala
++++ b/tests/cli_test.vala
+@@ -122,2 +122,3 @@
+         Test.add_func ("/cli/exit-codes", test_exit_codes);
++        Test.add_func ("/cli/list-managed-releases", test_list_managed_releases);
+         Test.add_func ("/cli/uninstall-inventory-path", test_uninstall_uses_inventory_path);
+@@ -330 +330,41 @@
++    private void test_list_managed_releases () {
++        var root = temporary_directory ();
++        try {
++            ProviderTool runner;
++            var launcher = setup_launcher (
++                root, "ge-proton", "GE-Proton",
++                release ("GE-Proton9-27", "GE-Proton9-27", "https://fixtures.invalid/ge-proton.zip"),
++                out runner
++            );
++
++            var managed_path = seed_latest_state (runner, "GE-Proton Latest", "GE-Proton9-27");
++            assert (Utils.Filesystem.create_directory (Path.build_filename (
++                root, "compatibilitytools.d", "unmanaged-runner"
++            )));
++            seed_managed_installation (
++                runner, "missing-release-tag", "missing-release-tag", "No release tag"
++            );
++
++            var output = new ProtonPlus.CLI.RecordingCliOutputSink ();
++            var handler = new FixtureHandler (launcher_list (launcher),
++                FixtureJobBehavior.NORMAL, output);
++            assert (run_cli ({ "protonplus", "list", launcher.instance_id }, handler) == 0);
++            assert (output.stdout_text.contains (
++                "  ge-proton  GE-Proton9-27  GE-Proton Latest\n"
++            ));
++            assert (!output.stdout_text.contains ("unmanaged-runner"));
++            assert (!output.stdout_text.contains ("No release tag"));
++            assert (!output.stdout_text.contains ("No runners installed"));
++
++            // Removing the receipt leaves a plain directory, not a listed release.
++            assert (FileUtils.remove (Path.build_filename (managed_path, ".protonplus")) == 0);
++            var empty_output = new ProtonPlus.CLI.RecordingCliOutputSink ();
++            assert (run_cli ({ "protonplus", "list", launcher.instance_id },
++                new FixtureHandler (launcher_list (launcher), FixtureJobBehavior.NORMAL, empty_output)) == 0);
++            assert (empty_output.stdout_text.contains ("No runners installed"));
++        } finally {
++            assert (delete_directory (root));
++        }
++    }
++
+     private void test_uninstall_uses_inventory_path () {
